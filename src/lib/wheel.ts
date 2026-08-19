@@ -90,23 +90,8 @@ export function maskPhone(phone: string): string {
 }
 
 let prizeQuotaColsReady = false;
-/** SQLite: weeklyLimit / monthlyLimit yoksa ekle */
+/** Kolonlar Prisma şemasında — Postgres'te PRAGMA yok */
 export async function ensurePrizePeriodQuotaColumns() {
-  if (prizeQuotaColsReady) return;
-  for (const col of ["weeklyLimit", "monthlyLimit"] as const) {
-    try {
-      const rows = await prisma.$queryRawUnsafe<{ n: number }[]>(
-        `SELECT COUNT(*) as n FROM pragma_table_info('WheelPrize') WHERE name = ?`,
-        col,
-      );
-      if (Number(rows[0]?.n ?? 0) > 0) continue;
-      await prisma.$executeRawUnsafe(
-        `ALTER TABLE WheelPrize ADD COLUMN ${col} INTEGER`,
-      );
-    } catch {
-      // concurrent / already exists
-    }
-  }
   prizeQuotaColsReady = true;
 }
 
@@ -309,44 +294,47 @@ export async function expireStaleWins(
 ) {
   if (claimWindowMinutes <= 0) return;
   const now = new Date();
-  const iso = now.toISOString();
-  const cutoff = new Date(
-    now.getTime() - claimWindowMinutes * 60_000,
-  ).toISOString();
+  const cutoff = new Date(now.getTime() - claimWindowMinutes * 60_000);
   if (playerId) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE WheelSpin SET cancelledAt = ?
-       WHERE campaignId = ? AND playerId = ? AND won = 1
-         AND claimedAt IS NULL AND cancelledAt IS NULL
-         AND (
-           (claimDeadline IS NOT NULL AND claimDeadline < ?)
-           OR (claimDeadline IS NULL AND createdAt < ?)
-         )`,
-      iso,
-      campaignId,
-      playerId,
-      iso,
-      cutoff,
-    );
+    await prisma.wheelSpin.updateMany({
+      where: {
+        campaignId,
+        playerId,
+        won: true,
+        claimedAt: null,
+        cancelledAt: null,
+        OR: [
+          { claimDeadline: { lt: now } },
+          { AND: [{ claimDeadline: null }, { createdAt: { lt: cutoff } }] },
+        ],
+      },
+      data: { cancelledAt: now },
+    });
     return;
   }
-  // Kampanya geneli — başka oyuncuların süresi dolmuş rezervleri stoğu tutmasın
-  await prisma.$executeRawUnsafe(
-    `UPDATE WheelSpin SET cancelledAt = ?
-     WHERE campaignId = ? AND won = 1
-       AND claimedAt IS NULL AND cancelledAt IS NULL
-       AND (
-         (claimDeadline IS NOT NULL AND claimDeadline < ?)
-         OR (claimDeadline IS NULL AND createdAt < ?)
-       )`,
-    iso,
-    campaignId,
-    iso,
-    cutoff,
-  );
+  await prisma.wheelSpin.updateMany({
+    where: {
+      campaignId,
+      won: true,
+      claimedAt: null,
+      cancelledAt: null,
+      OR: [
+        { claimDeadline: { lt: now } },
+        { AND: [{ claimDeadline: null }, { createdAt: { lt: cutoff } }] },
+      ],
+    },
+    data: { cancelledAt: now },
+  });
 }
 
-type QuotaTx = { $queryRawUnsafe: typeof prisma.$queryRawUnsafe };
+type QuotaTx = {
+  wheelPrize: {
+    findUnique: typeof prisma.wheelPrize.findUnique;
+  };
+  wheelSpin: {
+    count: typeof prisma.wheelSpin.count;
+  };
+};
 
 /** Aktif stok: kazanıldı + iptal edilmemiş (alınmasa da rezervde) */
 async function countReservedWins(
@@ -355,17 +343,15 @@ async function countReservedWins(
   prizeId: string,
   dayKey?: string,
 ) {
-  if (dayKey) {
-    return countReservedWinsInRange(tx, campaignId, prizeId, dayKey, dayKey);
-  }
-  const rows = await tx.$queryRawUnsafe<{ c: number }[]>(
-    `SELECT COUNT(*) as c FROM WheelSpin
-     WHERE campaignId = ? AND prizeId = ?
-       AND won = 1 AND cancelledAt IS NULL`,
-    campaignId,
-    prizeId,
-  );
-  return Number(rows[0]?.c ?? 0);
+  return tx.wheelSpin.count({
+    where: {
+      campaignId,
+      prizeId,
+      won: true,
+      cancelledAt: null,
+      ...(dayKey ? { dayKey } : {}),
+    },
+  });
 }
 
 async function countReservedWinsInRange(
@@ -375,17 +361,15 @@ async function countReservedWinsInRange(
   fromDay: string,
   toDay: string,
 ) {
-  const rows = await tx.$queryRawUnsafe<{ c: number }[]>(
-    `SELECT COUNT(*) as c FROM WheelSpin
-     WHERE campaignId = ? AND prizeId = ?
-       AND dayKey >= ? AND dayKey <= ?
-       AND won = 1 AND cancelledAt IS NULL`,
-    campaignId,
-    prizeId,
-    fromDay,
-    toDay,
-  );
-  return Number(rows[0]?.c ?? 0);
+  return tx.wheelSpin.count({
+    where: {
+      campaignId,
+      prizeId,
+      won: true,
+      cancelledAt: null,
+      dayKey: { gte: fromDay, lte: toDay },
+    },
+  });
 }
 
 export type PeriodLimits = {
@@ -395,23 +379,19 @@ export type PeriodLimits = {
   totalLimit?: number | null;
 };
 
-/** Prisma client eski olsa bile kolonları okur */
 export async function fetchPrizePeriodLimits(
   tx: QuotaTx,
   prizeId: string,
 ): Promise<PeriodLimits> {
-  const rows = await tx.$queryRawUnsafe<
-    {
-      dailyLimit: number | null;
-      weeklyLimit: number | null;
-      monthlyLimit: number | null;
-      totalLimit: number | null;
-    }[]
-  >(
-    `SELECT dailyLimit, weeklyLimit, monthlyLimit, totalLimit FROM WheelPrize WHERE id = ?`,
-    prizeId,
-  );
-  const r = rows[0];
+  const r = await tx.wheelPrize.findUnique({
+    where: { id: prizeId },
+    select: {
+      dailyLimit: true,
+      weeklyLimit: true,
+      monthlyLimit: true,
+      totalLimit: true,
+    },
+  });
   return {
     dailyLimit: r?.dailyLimit ?? null,
     weeklyLimit: r?.weeklyLimit ?? null,
@@ -436,14 +416,15 @@ export async function setPrizePeriodLimits(
     totalLimit:
       patch.totalLimit !== undefined ? patch.totalLimit : cur.totalLimit,
   };
-  await prisma.$executeRawUnsafe(
-    `UPDATE WheelPrize SET dailyLimit = ?, weeklyLimit = ?, monthlyLimit = ?, totalLimit = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-    next.dailyLimit,
-    next.weeklyLimit,
-    next.monthlyLimit,
-    next.totalLimit,
-    prizeId,
-  );
+  await prisma.wheelPrize.update({
+    where: { id: prizeId },
+    data: {
+      dailyLimit: next.dailyLimit,
+      weeklyLimit: next.weeklyLimit,
+      monthlyLimit: next.monthlyLimit,
+      totalLimit: next.totalLimit,
+    },
+  });
 }
 
 /** true = kota dolu, dilim seçilmesin */
@@ -533,13 +514,9 @@ async function countDeviceSpinsToday(
   deviceId: string,
   dayKey: string,
 ) {
-  const rows = await prisma.$queryRawUnsafe<{ c: number }[]>(
-    `SELECT COUNT(*) as c FROM WheelSpin WHERE campaignId = ? AND deviceId = ? AND dayKey = ?`,
-    campaignId,
-    deviceId,
-    dayKey,
-  );
-  return Number(rows[0]?.c ?? 0);
+  return prisma.wheelSpin.count({
+    where: { campaignId, deviceId, dayKey },
+  });
 }
 
 async function findDevicePhoneToday(
@@ -547,16 +524,12 @@ async function findDevicePhoneToday(
   deviceId: string,
   dayKey: string,
 ): Promise<string | null> {
-  const rows = await prisma.$queryRawUnsafe<{ phone: string }[]>(
-    `SELECT p.phone as phone FROM WheelSpin s
-     JOIN WheelPlayer p ON p.id = s.playerId
-     WHERE s.campaignId = ? AND s.deviceId = ? AND s.dayKey = ?
-     ORDER BY s.createdAt ASC LIMIT 1`,
-    campaignId,
-    deviceId,
-    dayKey,
-  );
-  return rows[0]?.phone ?? null;
+  const row = await prisma.wheelSpin.findFirst({
+    where: { campaignId, deviceId, dayKey },
+    orderBy: { createdAt: "asc" },
+    include: { player: true },
+  });
+  return row?.player.phone ?? null;
 }
 
 async function assertSinglePhonePerDeviceToday(
@@ -749,37 +722,13 @@ export async function getWheelSession(
       })
     : [];
 
-  const extras = player
-    ? await prisma.$queryRawUnsafe<
-        {
-          id: string;
-          cancelledAt: string | null;
-          claimDeadline: string | null;
-          locationId: string | null;
-          locationName: string | null;
-        }[]
-      >(
-        `SELECT id, cancelledAt, claimDeadline, locationId, locationName FROM WheelSpin
-         WHERE campaignId = ? AND playerId = ?
-         ORDER BY createdAt DESC LIMIT 40`,
-        campaign.id,
-        player.id,
-      )
-    : [];
-  const extraById = new Map(extras.map((e) => [e.id, e]));
-  const enriched: SpinRow[] = winsRaw.map((s) => {
-    const extra = extraById.get(s.id);
-    return {
-      ...s,
-      cancelledAt: extra?.cancelledAt ? new Date(extra.cancelledAt) : null,
-      claimDeadline: extra?.claimDeadline
-        ? new Date(extra.claimDeadline)
-        : null,
-      locationId: s.locationId ?? extra?.locationId ?? null,
-      locationName:
-        (s.locationName ?? extra?.locationName ?? null)?.trim() || null,
-    };
-  });
+  const enriched: SpinRow[] = winsRaw.map((s) => ({
+    ...s,
+    cancelledAt: s.cancelledAt ?? null,
+    claimDeadline: s.claimDeadline ?? null,
+    locationId: s.locationId ?? null,
+    locationName: s.locationName?.trim() || null,
+  }));
 
   const wins = enriched.map((w) => mapWin(w, display.claimWindowMinutes));
   const pendingWins = wins.filter((w) => w.status === "pending");
@@ -969,13 +918,9 @@ export async function spinWheel(
     const phoneSpins = await tx.wheelSpin.count({
       where: { campaignId: campaign.id, playerId: player.id, dayKey },
     });
-    const deviceRows = await tx.$queryRawUnsafe<{ c: number }[]>(
-      `SELECT COUNT(*) as c FROM WheelSpin WHERE campaignId = ? AND deviceId = ? AND dayKey = ?`,
-      campaign.id,
-      deviceId,
-      dayKey,
-    );
-    const deviceSpins = Number(deviceRows[0]?.c ?? 0);
+    const deviceSpins = await tx.wheelSpin.count({
+      where: { campaignId: campaign.id, deviceId, dayKey },
+    });
     const todaySpins = Math.max(phoneSpins, deviceSpins);
 
     if (todaySpins >= campaign.spinsPerPlayerPerDay) {
@@ -1095,13 +1040,9 @@ export async function spinWheel(
     const phoneAfter = await tx.wheelSpin.count({
       where: { campaignId: campaign.id, playerId: player.id, dayKey },
     });
-    const deviceAfterRows = await tx.$queryRawUnsafe<{ c: number }[]>(
-      `SELECT COUNT(*) as c FROM WheelSpin WHERE campaignId = ? AND deviceId = ? AND dayKey = ?`,
-      campaign.id,
-      deviceId,
-      dayKey,
-    );
-    const deviceAfter = Number(deviceAfterRows[0]?.c ?? 0);
+    const deviceAfter = await tx.wheelSpin.count({
+      where: { campaignId: campaign.id, deviceId, dayKey },
+    });
     if (Math.max(phoneAfter, deviceAfter) > campaign.spinsPerPlayerPerDay) {
       await tx.wheelSpin.delete({ where: { id: spin.id } });
       return {
@@ -1279,18 +1220,10 @@ export async function claimPrize(
       return { status: 404 as const, error: "Hədiyyə qeydi tapılmadı." };
     }
 
-    const extra = await tx.$queryRawUnsafe<
-      { cancelledAt: string | null; claimDeadline: string | null }[]
-    >(
-      `SELECT cancelledAt, claimDeadline FROM WheelSpin WHERE id = ?`,
-      spin.id,
-    );
     const row: SpinRow = {
       ...spin,
-      cancelledAt: extra[0]?.cancelledAt ? new Date(extra[0].cancelledAt) : null,
-      claimDeadline: extra[0]?.claimDeadline
-        ? new Date(extra[0].claimDeadline)
-        : null,
+      cancelledAt: spin.cancelledAt ?? null,
+      claimDeadline: spin.claimDeadline ?? null,
     };
 
     if (spin.claimedAt) {

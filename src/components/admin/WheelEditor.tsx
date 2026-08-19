@@ -150,7 +150,14 @@ export default function WheelEditor({
 
   const loadPrizes = useCallback(async () => {
     const res = await fetch(`/api/campaigns/${campaignId}/prizes`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(
+        (data && typeof data.error === "string" && data.error) ||
+          "Dilimler yüklenemedi.",
+      );
+      return;
+    }
     const data = await res.json();
     setPrizes(data.prizes || []);
   }, [campaignId]);
@@ -162,7 +169,14 @@ export default function WheelEditor({
     if (locationId) params.set("locationId", locationId);
     const q = params.toString() ? `?${params}` : "";
     const res = await fetch(`/api/campaigns/${campaignId}/wheel/spins${q}`);
-    if (!res.ok) return;
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(
+        (data && typeof data.error === "string" && data.error) ||
+          "Çevirme listesi yüklenemedi.",
+      );
+      return;
+    }
     const data = await res.json();
     setSpins(data.spins || []);
     setStock(data.stock || []);
@@ -451,10 +465,13 @@ export default function WheelEditor({
         totalLimit: totalLimit === "" ? null : Number(totalLimit),
       }),
     });
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
     setBusy(false);
     if (!res.ok) {
-      setError(data.error || "Eklenemedi");
+      setError(
+        (data && typeof data.error === "string" && data.error) ||
+          "Dilim eklenemedi. Sayfayı yenileyip tekrar deneyin.",
+      );
       return;
     }
     const wasEmpty = isEmpty;

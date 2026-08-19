@@ -46,12 +46,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   }
 
   if (parsed.data.totalLimit != null) {
-    const rows = await prisma.$queryRawUnsafe<{ c: number }[]>(
-      `SELECT COUNT(*) as c FROM WheelSpin
-       WHERE prizeId = ? AND won = 1 AND cancelledAt IS NULL`,
-      prizeId,
-    );
-    const wins = Number(rows[0]?.c ?? 0);
+    const wins = await prisma.wheelSpin.count({
+      where: { prizeId, won: true, cancelledAt: null },
+    });
     if (parsed.data.totalLimit < wins) {
       return NextResponse.json(
         {

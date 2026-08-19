@@ -94,6 +94,8 @@ export async function POST(req: NextRequest, { params }: Params) {
       color: parsed.data.color ?? "#0f6b5c",
       weight: parsed.data.weight ?? 1,
       dailyLimit: parsed.data.dailyLimit ?? null,
+      weeklyLimit: parsed.data.weeklyLimit ?? null,
+      monthlyLimit: parsed.data.monthlyLimit ?? null,
       totalLimit: parsed.data.totalLimit ?? null,
       isEmpty: parsed.data.isEmpty ?? false,
       active: parsed.data.active ?? true,

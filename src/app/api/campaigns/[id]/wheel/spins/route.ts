@@ -55,66 +55,56 @@ export async function GET(req: NextRequest, { params }: Params) {
     take: format === "csv" ? 10000 : 500,
   });
 
-  const cancelRows = await prisma.$queryRawUnsafe<
-    { id: string; cancelledAt: string | null; claimDeadline: string | null }[]
-  >(
-    `SELECT id, cancelledAt, claimDeadline FROM WheelSpin WHERE campaignId = ? AND dayKey = ?`,
-    id,
-    day,
-  );
-  const cancelById = new Map(cancelRows.map((r) => [r.id, r]));
-
   const prizes = await prisma.wheelPrize.findMany({
     where: { campaignId: id },
     orderBy: { sortOrder: "asc" },
   });
 
-  // Rezerve stok: kazanıldı + iptal edilmemiş (Aldım bekleyenler kota tutar)
+  const reservedWhere = {
+    campaignId: id,
+    won: true as const,
+    cancelledAt: null,
+  };
   const [todayGrouped, weekGrouped, monthGrouped, totalGrouped] =
     await Promise.all([
-      prisma.$queryRawUnsafe<{ prizeId: string; c: number }[]>(
-        `SELECT prizeId, COUNT(*) as c FROM WheelSpin
-         WHERE campaignId = ? AND dayKey = ? AND won = 1 AND cancelledAt IS NULL
-         GROUP BY prizeId`,
-        id,
-        day,
-      ),
-      prisma.$queryRawUnsafe<{ prizeId: string; c: number }[]>(
-        `SELECT prizeId, COUNT(*) as c FROM WheelSpin
-         WHERE campaignId = ? AND dayKey >= ? AND dayKey <= ?
-           AND won = 1 AND cancelledAt IS NULL
-         GROUP BY prizeId`,
-        id,
-        week.from,
-        week.to,
-      ),
-      prisma.$queryRawUnsafe<{ prizeId: string; c: number }[]>(
-        `SELECT prizeId, COUNT(*) as c FROM WheelSpin
-         WHERE campaignId = ? AND dayKey >= ? AND dayKey <= ?
-           AND won = 1 AND cancelledAt IS NULL
-         GROUP BY prizeId`,
-        id,
-        month.from,
-        month.to,
-      ),
-      prisma.$queryRawUnsafe<{ prizeId: string; c: number }[]>(
-        `SELECT prizeId, COUNT(*) as c FROM WheelSpin
-         WHERE campaignId = ? AND won = 1 AND cancelledAt IS NULL
-         GROUP BY prizeId`,
-        id,
-      ),
+      prisma.wheelSpin.groupBy({
+        by: ["prizeId"],
+        where: { ...reservedWhere, dayKey: day },
+        _count: { _all: true },
+      }),
+      prisma.wheelSpin.groupBy({
+        by: ["prizeId"],
+        where: {
+          ...reservedWhere,
+          dayKey: { gte: week.from, lte: week.to },
+        },
+        _count: { _all: true },
+      }),
+      prisma.wheelSpin.groupBy({
+        by: ["prizeId"],
+        where: {
+          ...reservedWhere,
+          dayKey: { gte: month.from, lte: month.to },
+        },
+        _count: { _all: true },
+      }),
+      prisma.wheelSpin.groupBy({
+        by: ["prizeId"],
+        where: reservedWhere,
+        _count: { _all: true },
+      }),
     ]);
   const todayByPrize = new Map(
-    todayGrouped.map((g) => [g.prizeId, Number(g.c)]),
+    todayGrouped.map((g) => [g.prizeId, g._count._all]),
   );
   const weekByPrize = new Map(
-    weekGrouped.map((g) => [g.prizeId, Number(g.c)]),
+    weekGrouped.map((g) => [g.prizeId, g._count._all]),
   );
   const monthByPrize = new Map(
-    monthGrouped.map((g) => [g.prizeId, Number(g.c)]),
+    monthGrouped.map((g) => [g.prizeId, g._count._all]),
   );
   const totalByPrize = new Map(
-    totalGrouped.map((g) => [g.prizeId, Number(g.c)]),
+    totalGrouped.map((g) => [g.prizeId, g._count._all]),
   );
 
   const prizeLimits = await Promise.all(
@@ -186,19 +176,18 @@ export async function GET(req: NextRequest, { params }: Params) {
   const now = Date.now();
   const rows = spins
     .map((s) => {
-      const extra = cancelById.get(s.id);
-      const deadline = extra?.claimDeadline
-        ? new Date(extra.claimDeadline).getTime()
+      const deadline = s.claimDeadline
+        ? s.claimDeadline.getTime()
         : display.claimWindowMinutes > 0
           ? s.createdAt.getTime() + display.claimWindowMinutes * 60_000
           : null;
       const timedOut =
         s.won &&
         !s.claimedAt &&
-        !extra?.cancelledAt &&
+        !s.cancelledAt &&
         deadline != null &&
         deadline <= now;
-      const cancelled = Boolean(extra?.cancelledAt) || timedOut;
+      const cancelled = Boolean(s.cancelledAt) || timedOut;
       const claimed = Boolean(s.claimedAt) && !cancelled;
       const status = !s.won
         ? "bos"
@@ -221,7 +210,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         status,
         claimedAt: s.claimedAt?.toISOString() ?? null,
         claimedAtLabel: s.claimedAt ? formatIstanbul(s.claimedAt) : null,
-        cancelledAt: extra?.cancelledAt ?? null,
+        cancelledAt: s.cancelledAt?.toISOString() ?? null,
         cancelledAtLabel: cancelled
           ? "Zamanında alınmadı — iptal"
           : null,

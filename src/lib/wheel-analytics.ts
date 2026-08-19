@@ -113,38 +113,19 @@ async function loadSpinsInRange(
     orderBy: { createdAt: "desc" },
   });
 
-  const extras = await prisma.$queryRawUnsafe<
-    {
-      id: string;
-      cancelledAt: string | null;
-      locationId: string | null;
-      locationName: string | null;
-    }[]
-  >(
-    `SELECT id, cancelledAt, locationId, locationName FROM WheelSpin
-     WHERE campaignId = ? AND dayKey >= ? AND dayKey <= ?`,
-    campaignId,
-    from,
-    to,
-  );
-  const extraById = new Map(extras.map((e) => [e.id, e]));
-
-  return spins.map((s) => {
-    const ex = extraById.get(s.id);
-    return {
-      id: s.id,
-      dayKey: s.dayKey,
-      won: s.won,
-      claimedAt: s.claimedAt,
-      cancelledAt: ex?.cancelledAt ?? null,
-      prizeId: s.prizeId,
-      phone: s.player.phone,
-      prizeName: s.prize.name,
-      createdAt: s.createdAt,
-      locationId: ex?.locationId ?? null,
-      locationName: ex?.locationName ?? null,
-    };
-  });
+  return spins.map((s) => ({
+    id: s.id,
+    dayKey: s.dayKey,
+    won: s.won,
+    claimedAt: s.claimedAt,
+    cancelledAt: s.cancelledAt?.toISOString() ?? null,
+    prizeId: s.prizeId,
+    phone: s.player.phone,
+    prizeName: s.prize.name,
+    createdAt: s.createdAt,
+    locationId: s.locationId ?? null,
+    locationName: s.locationName ?? null,
+  }));
 }
 
 function buildByLocation(spins: SpinLite[]): LocationBucket[] {
@@ -254,15 +235,14 @@ async function buildByPrize(
     orderBy: { sortOrder: "asc" },
   });
 
-  const reserved = await prisma.$queryRawUnsafe<
-    { prizeId: string; c: number }[]
-  >(
-    `SELECT prizeId, COUNT(*) as c FROM WheelSpin
-     WHERE campaignId = ? AND won = 1 AND cancelledAt IS NULL
-     GROUP BY prizeId`,
-    campaignId,
+  const reserved = await prisma.wheelSpin.groupBy({
+    by: ["prizeId"],
+    where: { campaignId, won: true, cancelledAt: null },
+    _count: { _all: true },
+  });
+  const reservedMap = new Map(
+    reserved.map((r) => [r.prizeId, r._count._all]),
   );
-  const reservedMap = new Map(reserved.map((r) => [r.prizeId, Number(r.c)]));
 
   const totalWinsInRange = spins.filter((s) => s.won).length || 1;
 
