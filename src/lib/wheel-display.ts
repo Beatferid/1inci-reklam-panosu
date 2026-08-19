@@ -34,43 +34,26 @@ export class WheelSettingsUnavailableError extends Error {
 let claimPinEnsured = false;
 
 async function ensureClaimPinColumn() {
-  if (claimPinEnsured) return;
-  try {
-    const cols = await prisma.$queryRawUnsafe<{ name: string }[]>(
-      `PRAGMA table_info(Campaign)`,
-    );
-    const has = cols.some((c) => c.name === "claimPin");
-    if (!has) {
-      await prisma.$executeRawUnsafe(
-        `ALTER TABLE Campaign ADD COLUMN claimPin TEXT NOT NULL DEFAULT ''`,
-      );
-    }
-  } catch {
-    // ignore
-  }
   claimPinEnsured = true;
 }
 
-/** SQLite kolonları — Prisma client yenilenmese bile çalışır */
+/** Kampanya çark görünüm ayarları */
 export async function getWheelDisplaySettings(
   campaignId: string,
 ): Promise<WheelDisplaySettings> {
   await ensureClaimPinColumn();
   try {
-    const rows = await prisma.$queryRawUnsafe<
-      {
-        wheelShowPrizeNames: number | boolean;
-        wheelEqualSlices: number | boolean;
-        spinCooldownMinutes: number | null;
-        claimWindowMinutes: number | null;
-        spinPin: string | null;
-        claimPin: string | null;
-      }[]
-    >(
-      `SELECT wheelShowPrizeNames, wheelEqualSlices, spinCooldownMinutes, claimWindowMinutes, spinPin, claimPin FROM Campaign WHERE id = ?`,
-      campaignId,
-    );
-    const row = rows[0];
+    const row = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: {
+        wheelShowPrizeNames: true,
+        wheelEqualSlices: true,
+        spinCooldownMinutes: true,
+        claimWindowMinutes: true,
+        spinPin: true,
+        claimPin: true,
+      },
+    });
     const spinPin = normalizePin(row?.spinPin);
     const claimPin = normalizePin(row?.claimPin);
     return {
@@ -123,16 +106,17 @@ export async function setWheelDisplaySettings(
     claimPin: nextClaimPin,
     requireClaimPin: nextClaimPin.length === 5,
   };
-  await prisma.$executeRawUnsafe(
-    `UPDATE Campaign SET wheelShowPrizeNames = ?, wheelEqualSlices = ?, spinCooldownMinutes = ?, claimWindowMinutes = ?, spinPin = ?, claimPin = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-    next.wheelShowPrizeNames ? 1 : 0,
-    next.wheelEqualSlices ? 1 : 0,
-    next.spinCooldownMinutes,
-    next.claimWindowMinutes,
-    next.spinPin,
-    next.claimPin,
-    campaignId,
-  );
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: {
+      wheelShowPrizeNames: next.wheelShowPrizeNames,
+      wheelEqualSlices: next.wheelEqualSlices,
+      spinCooldownMinutes: next.spinCooldownMinutes,
+      claimWindowMinutes: next.claimWindowMinutes,
+      spinPin: next.spinPin,
+      claimPin: next.claimPin,
+    },
+  });
   return next;
 }
 

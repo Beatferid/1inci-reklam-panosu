@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { distanceMeters } from "@/lib/geo-math";
-import { nanoid } from "nanoid";
 
 export { distanceMeters };
 
@@ -36,90 +35,6 @@ let ensured = false;
 
 async function ensureGeoSchema() {
   if (ensured) return;
-  async function columnExists(table: string, col: string) {
-    try {
-      const rows = await prisma.$queryRawUnsafe<any[]>(
-        `PRAGMA table_info('${table}')`,
-      );
-      return rows.some((r) => r && (r.name === col || r.NAME === col));
-    } catch {
-      return false;
-    }
-  }
-
-  const campaignCols: [string, string][] = [
-    ["Campaign", "geoEnabled"],
-    ["Campaign", "geoLat"],
-    ["Campaign", "geoLng"],
-    ["Campaign", "geoRadiusMeters"],
-  ];
-  const spinCols: [string, string][] = [
-    ["WheelSpin", "locationId"],
-    ["WheelSpin", "locationName"],
-  ];
-  const locationCols: [string, string][] = [
-    ["CampaignLocation", "branchName"],
-    ["CampaignLocation", "active"],
-    ["CampaignLocation", "sortOrder"],
-    ["CampaignLocation", "createdAt"],
-    ["CampaignLocation", "updatedAt"],
-  ];
-
-  for (const [table, col] of [...campaignCols, ...spinCols, ...locationCols]) {
-    if (await columnExists(table, col)) continue;
-    const sql = table === "Campaign"
-      ? col === "geoEnabled"
-        ? `ALTER TABLE Campaign ADD COLUMN geoEnabled INTEGER NOT NULL DEFAULT 0`
-        : col === "geoLat"
-          ? `ALTER TABLE Campaign ADD COLUMN geoLat REAL`
-          : col === "geoLng"
-            ? `ALTER TABLE Campaign ADD COLUMN geoLng REAL`
-            : `ALTER TABLE Campaign ADD COLUMN geoRadiusMeters INTEGER NOT NULL DEFAULT 150`
-      : table === "WheelSpin"
-        ? col === "locationId"
-          ? `ALTER TABLE WheelSpin ADD COLUMN locationId TEXT`
-          : `ALTER TABLE WheelSpin ADD COLUMN locationName TEXT`
-        : col === "branchName"
-          ? `ALTER TABLE CampaignLocation ADD COLUMN branchName TEXT NOT NULL DEFAULT ''`
-          : col === "active"
-            ? `ALTER TABLE CampaignLocation ADD COLUMN active INTEGER NOT NULL DEFAULT 1`
-            : col === "sortOrder"
-              ? `ALTER TABLE CampaignLocation ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0`
-              : col === "createdAt"
-                ? `ALTER TABLE CampaignLocation ADD COLUMN createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`
-                : `ALTER TABLE CampaignLocation ADD COLUMN updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP`;
-    try {
-      await prisma.$executeRawUnsafe(sql);
-    } catch {
-      // ignore if another process created it concurrently
-    }
-  }
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE TABLE IF NOT EXISTS CampaignLocation (
-        id TEXT PRIMARY KEY NOT NULL,
-        campaignId TEXT NOT NULL,
-        name TEXT NOT NULL,
-        branchName TEXT NOT NULL DEFAULT '',
-        lat REAL NOT NULL,
-        lng REAL NOT NULL,
-        radiusMeters INTEGER NOT NULL DEFAULT 150,
-        active INTEGER NOT NULL DEFAULT 1,
-        sortOrder INTEGER NOT NULL DEFAULT 0,
-        createdAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (campaignId) REFERENCES Campaign(id) ON DELETE CASCADE
-      )
-    `);
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS CampaignLocation_campaignId_idx ON CampaignLocation(campaignId)`,
-    );
-    await prisma.$executeRawUnsafe(
-      `UPDATE CampaignLocation SET updatedAt = COALESCE(updatedAt, createdAt, CURRENT_TIMESTAMP) WHERE updatedAt IS NULL`,
-    );
-  } catch {
-    // ignore
-  }
   ensured = true;
 }
 
@@ -173,24 +88,10 @@ export function locationLabel(loc: {
 async function listLocationsRaw(
   campaignId: string,
 ): Promise<CampaignLocation[]> {
-  const rows = await prisma.$queryRawUnsafe<
-    {
-      id: string;
-      campaignId: string;
-      name: string;
-      branchName: string | null;
-      lat: number;
-      lng: number;
-      radiusMeters: number;
-      active: number | boolean;
-      sortOrder: number;
-    }[]
-  >(
-    `SELECT id, campaignId, name, branchName, lat, lng, radiusMeters, active, sortOrder
-     FROM CampaignLocation WHERE campaignId = ?
-     ORDER BY sortOrder ASC, createdAt ASC`,
-    campaignId,
-  );
+  const rows = await prisma.campaignLocation.findMany({
+    where: { campaignId },
+    orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+  });
   return rows.map(mapLoc);
 }
 
@@ -198,33 +99,25 @@ async function listLocationsRaw(
 async function migrateLegacyIfNeeded(campaignId: string) {
   const existing = await listLocationsRaw(campaignId);
   if (existing.length > 0) return;
-  const rows = await prisma.$queryRawUnsafe<
-    {
-      geoLat: number | null;
-      geoLng: number | null;
-      geoRadiusMeters: number | null;
-      name: string;
-    }[]
-  >(
-    `SELECT geoLat, geoLng, geoRadiusMeters, name FROM Campaign WHERE id = ?`,
-    campaignId,
-  );
-  const row = rows[0];
+  const row = await prisma.campaign.findUnique({
+    where: { id: campaignId },
+    select: { geoLat: true, geoLng: true, geoRadiusMeters: true, name: true },
+  });
   const lat = clampCoord(row?.geoLat, -90, 90);
   const lng = clampCoord(row?.geoLng, -180, 180);
   if (lat == null || lng == null) return;
-  const id = nanoid();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO CampaignLocation (id, campaignId, name, branchName, lat, lng, radiusMeters, active, sortOrder, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    id,
-    campaignId,
-    row?.name || "Market",
-    "Merkez",
-    lat,
-    lng,
-    clampInt(row?.geoRadiusMeters, 30, 5000, 150),
-  );
+  await prisma.campaignLocation.create({
+    data: {
+      campaignId,
+      name: row?.name || "Market",
+      branchName: "Merkez",
+      lat,
+      lng,
+      radiusMeters: clampInt(row?.geoRadiusMeters, 30, 5000, 150),
+      active: true,
+      sortOrder: 0,
+    },
+  });
 }
 
 export async function getWheelGeoSettings(
@@ -233,22 +126,18 @@ export async function getWheelGeoSettings(
   await ensureGeoSchema();
   try {
     await migrateLegacyIfNeeded(campaignId);
-    const rows = await prisma.$queryRawUnsafe<
-      {
-        geoEnabled: number | boolean | null;
-        geoLat: number | null;
-        geoLng: number | null;
-        geoRadiusMeters: number | null;
-      }[]
-    >(
-      `SELECT geoEnabled, geoLat, geoLng, geoRadiusMeters FROM Campaign WHERE id = ?`,
-      campaignId,
-    );
-    const row = rows[0];
+    const row = await prisma.campaign.findUnique({
+      where: { id: campaignId },
+      select: {
+        geoEnabled: true,
+        geoLat: true,
+        geoLng: true,
+        geoRadiusMeters: true,
+      },
+    });
     const locations = await listLocationsRaw(campaignId);
     return {
-      geoEnabled:
-        row?.geoEnabled === true || Number(row?.geoEnabled) === 1,
+      geoEnabled: Boolean(row?.geoEnabled),
       geoLat: clampCoord(row?.geoLat, -90, 90),
       geoLng: clampCoord(row?.geoLng, -180, 180),
       geoRadiusMeters: clampInt(row?.geoRadiusMeters, 30, 5000, 150),
@@ -268,11 +157,10 @@ export async function setGeoEnabled(campaignId: string, enabled: boolean) {
       throw new Error("Konum kilidi için en az bir aktif market konumu ekleyin.");
     }
   }
-  await prisma.$executeRawUnsafe(
-    `UPDATE Campaign SET geoEnabled = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-    enabled ? 1 : 0,
-    campaignId,
-  );
+  await prisma.campaign.update({
+    where: { id: campaignId },
+    data: { geoEnabled: enabled },
+  });
 }
 
 export async function listCampaignLocations(
@@ -301,29 +189,25 @@ export async function createCampaignLocation(
   if (name.length < 2) throw new Error("Konum / market adı gerekli.");
   const branchName = String(input.branchName || "").trim();
   const radiusMeters = clampInt(input.radiusMeters, 30, 5000, 150);
-  const maxSort = await prisma.$queryRawUnsafe<{ m: number | null }[]>(
-    `SELECT MAX(sortOrder) as m FROM CampaignLocation WHERE campaignId = ?`,
-    campaignId,
-  );
-  const sortOrder = (Number(maxSort[0]?.m) || 0) + 1;
-  const id = nanoid();
-  await prisma.$executeRawUnsafe(
-    `INSERT INTO CampaignLocation (id, campaignId, name, branchName, lat, lng, radiusMeters, active, sortOrder, createdAt, updatedAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-    id,
-    campaignId,
-    name,
-    branchName,
-    lat,
-    lng,
-    radiusMeters,
-    sortOrder,
-  );
-  const rows = await prisma.$queryRawUnsafe<Parameters<typeof mapLoc>[0][]>(
-    `SELECT * FROM CampaignLocation WHERE id = ?`,
-    id,
-  );
-  return mapLoc(rows[0]!);
+  const last = await prisma.campaignLocation.findFirst({
+    where: { campaignId },
+    orderBy: { sortOrder: "desc" },
+    select: { sortOrder: true },
+  });
+  const sortOrder = (last?.sortOrder || 0) + 1;
+  const created = await prisma.campaignLocation.create({
+    data: {
+      campaignId,
+      name,
+      branchName,
+      lat,
+      lng,
+      radiusMeters,
+      active: true,
+      sortOrder,
+    },
+  });
+  return mapLoc(created);
 }
 
 export async function updateCampaignLocation(
@@ -368,24 +252,23 @@ export async function updateCampaignLocation(
     ),
     active: patch.active ?? current.active,
   };
-  await prisma.$executeRawUnsafe(
-    `UPDATE CampaignLocation SET name = ?, branchName = ?, lat = ?, lng = ?, radiusMeters = ?, active = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ? AND campaignId = ?`,
-    next.name,
-    next.branchName,
-    next.lat,
-    next.lng,
-    next.radiusMeters,
-    next.active ? 1 : 0,
-    locationId,
-    campaignId,
-  );
-  // Son aktif konum pasife alınırsa konum kilidini kapat (delete ile aynı)
+  await prisma.campaignLocation.update({
+    where: { id: locationId },
+    data: {
+      name: next.name,
+      branchName: next.branchName,
+      lat: next.lat,
+      lng: next.lng,
+      radiusMeters: next.radiusMeters,
+      active: next.active,
+    },
+  });
   const left = await listLocationsRaw(campaignId);
   if (left.filter((l) => l.active).length === 0) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE Campaign SET geoEnabled = 0, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-      campaignId,
-    );
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { geoEnabled: false },
+    });
   }
   return { ...current, ...next };
 }
@@ -395,17 +278,15 @@ export async function deleteCampaignLocation(
   locationId: string,
 ) {
   await ensureGeoSchema();
-  await prisma.$executeRawUnsafe(
-    `DELETE FROM CampaignLocation WHERE id = ? AND campaignId = ?`,
-    locationId,
-    campaignId,
-  );
+  await prisma.campaignLocation.deleteMany({
+    where: { id: locationId, campaignId },
+  });
   const left = await listLocationsRaw(campaignId);
   if (left.filter((l) => l.active).length === 0) {
-    await prisma.$executeRawUnsafe(
-      `UPDATE Campaign SET geoEnabled = 0, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-      campaignId,
-    );
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: { geoEnabled: false },
+    });
   }
 }
 
@@ -555,13 +436,14 @@ export async function setWheelGeoSettings(
         radiusMeters: patch.geoRadiusMeters ?? first.radiusMeters,
       });
     }
-    await prisma.$executeRawUnsafe(
-      `UPDATE Campaign SET geoLat = ?, geoLng = ?, geoRadiusMeters = ?, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`,
-      patch.geoLat,
-      patch.geoLng,
-      clampInt(patch.geoRadiusMeters, 30, 5000, 150),
-      campaignId,
-    );
+    await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        geoLat: patch.geoLat,
+        geoLng: patch.geoLng,
+        geoRadiusMeters: clampInt(patch.geoRadiusMeters, 30, 5000, 150),
+      },
+    });
   }
   return getWheelGeoSettings(campaignId);
 }
