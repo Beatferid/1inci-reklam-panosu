@@ -1,0 +1,288 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+enum CampaignStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum MediaType {
+  VIDEO
+  IMAGE
+}
+
+model Campaign {
+  id                   String         @id @default(cuid())
+  name                 String
+  slug                 String         @unique
+  status               CampaignStatus @default(DRAFT)
+  targetImagePath      String?
+  mindPath             String?
+  mediaType            MediaType?
+  mediaPath            String?
+  mediaMime            String?
+  posterPath           String?
+  notes                String?
+  scanCount            Int            @default(0)
+  targetFoundCount     Int            @default(0)
+  playCount            Int            @default(0)
+  wheelEnabled         Boolean        @default(false)
+  spinsPerPlayerPerDay Int            @default(1)
+  wheelShowPrizeNames  Boolean        @default(false)
+  wheelEqualSlices     Boolean        @default(true)
+  spinCooldownMinutes  Int            @default(0)
+  claimWindowMinutes   Int            @default(30)
+  spinPin              String         @default("")
+  /** Kasiyer "Aldım" onayı — market spinPin'den ayrı */
+  claimPin             String         @default("")
+  geoEnabled           Boolean        @default(false)
+  geoLat               Float?
+  geoLng               Float?
+  geoRadiusMeters      Int            @default(150)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  events               AnalyticsEvent[]
+  prizes               WheelPrize[]
+  players              WheelPlayer[]
+  spins                WheelSpin[]
+  locations            CampaignLocation[]
+}
+
+model CampaignLocation {
+  id            String   @id @default(cuid())
+  campaignId    String
+  campaign      Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name          String
+  branchName    String   @default("")
+  lat           Float
+  lng           Float
+  radiusMeters  Int      @default(150)
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([campaignId])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  type       String
+  meta       String?
+  createdAt  DateTime @default(now())
+
+  @@index([campaignId, type])
+}
+
+model WheelPrize {
+  id          String   @id @default(cuid())
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  color       String   @default("#0f6b5c")
+  weight       Int      @default(1)
+  dailyLimit   Int?
+  weeklyLimit  Int?
+  monthlyLimit Int?
+  totalLimit   Int?
+  isEmpty      Boolean  @default(false)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  imagePath   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  spins       WheelSpin[]
+
+  @@index([campaignId, active])
+}
+
+model WheelPlayer {
+  id         String   @id @default(cuid())
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  phone      String
+  createdAt  DateTime @default(now())
+  spins      WheelSpin[]
+
+  @@unique([campaignId, phone])
+  @@index([campaignId])
+}
+
+model WheelSpin {
+  id            String      @id @default(cuid())
+  campaignId    String
+  campaign      Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  playerId      String
+  player        WheelPlayer @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  prizeId       String
+  prize         WheelPrize  @relation(fields: [prizeId], references: [id], onDelete: Cascade)
+  won           Boolean
+  dayKey        String
+  deviceId      String?
+  locationId    String?
+  locationName  String?
+  claimedAt     DateTime?
+  cancelledAt   DateTime?
+  claimDeadline DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([campaignId, playerId, dayKey])
+  @@index([campaignId, prizeId, dayKey])
+  @@index([campaignId, dayKey])
+  @@index([campaignId, playerId, won])
+  @@index([campaignId, deviceId, dayKey])
+  @@index([campaignId, locationId])
+}
+
+enum FeedbackType {
+  SUGGESTION
+  COMPLAINT
+}
+
+enum FeedbackStatus {
+  NEW
+  READ
+  RESOLVED
+}
+
+/** Kampanyalardan bağımsız Öneri & Şikayet kutusu — kendi QR'ı, kendi şubeleri */
+model FeedbackBox {
+  id                  String             @id @default(cuid())
+  name                String
+  slug                String             @unique
+  status              CampaignStatus     @default(DRAFT)
+  geoEnabled          Boolean            @default(false)
+  dailyLimitPerDevice Int                @default(3)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  locations           FeedbackLocation[]
+  entries             FeedbackEntry[]
+  devices             FeedbackDevice[]
+}
+
+model FeedbackLocation {
+  id            String      @id @default(cuid())
+  feedbackBoxId String
+  feedbackBox   FeedbackBox @relation(fields: [feedbackBoxId], references: [id], onDelete: Cascade)
+  name          String
+  branchName    String      @default("")
+  lat           Float
+  lng           Float
+  radiusMeters  Int         @default(150)
+  active        Boolean     @default(true)
+  sortOrder     Int         @default(0)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([feedbackBoxId])
+}
+
+/** Cihaz takibi/etiketleme — analiz ve raporlama için */
+model FeedbackDevice {
+  id            String      @id @default(cuid())
+  feedbackBoxId String
+  feedbackBox   FeedbackBox @relation(fields: [feedbackBoxId], references: [id], onDelete: Cascade)
+  deviceId      String
+  /** Admin'in cihaza verdiği isim, örn. "Giriş kiosku" */
+  label         String?
+  firstSeenAt   DateTime    @default(now())
+  lastSeenAt    DateTime    @default(now())
+
+  @@unique([feedbackBoxId, deviceId])
+  @@index([feedbackBoxId])
+}
+
+model FeedbackEntry {
+  id             String         @id @default(cuid())
+  feedbackBoxId  String
+  feedbackBox    FeedbackBox    @relation(fields: [feedbackBoxId], references: [id], onDelete: Cascade)
+  type           FeedbackType
+  /** Bal vermek istəyə bağlıdır — verilməzsə null */
+  rating         Int?
+  message        String
+  /** Müştəri ad/telefonu istəyə bağlıdır — boşdursa anonim sayılır */
+  customerName   String?
+  customerPhone  String?
+  locationId     String?
+  locationName   String?
+  deviceId       String
+  dayKey         String
+  lat            Float?
+  lng            Float?
+  distanceMeters Float?
+  status         FeedbackStatus @default(NEW)
+  createdAt      DateTime       @default(now())
+
+  @@index([feedbackBoxId, dayKey])
+  @@index([feedbackBoxId, deviceId, dayKey])
+  @@index([feedbackBoxId, status])
+  @@index([feedbackBoxId, createdAt])
+}
+
+enum CatalogTheme {
+  NONE
+  NEW_YEAR
+  EID
+  RAMADAN
+  SNOW
+  SPRING
+}
+
+/** Kataloq səhifə çevirmə animasiya stili */
+enum CatalogFlipStyle {
+  CURL
+  SLIDE
+  FADE
+  ZOOM
+  FLIP_H
+}
+
+/** Kampanyalardan bağımsız dijital katalog — QR ile açılan, sayfa çevirme efektli dergi/broşür */
+model Catalog {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  status      CampaignStatus   @default(DRAFT)
+  coverTitle  String?
+  /** WhatsApp / sosyal paylaşım önizleme görseli */
+  coverPath   String?
+  logoPath    String?
+  musicPath   String?
+  musicVolume Float            @default(0.5)
+  theme       CatalogTheme     @default(NONE)
+  flipStyle   CatalogFlipStyle @default(CURL)
+  viewCount   Int              @default(0)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  pages       CatalogPage[]
+}
+
+model CatalogPage {
+  id        String   @id @default(cuid())
+  catalogId String
+  catalog   Catalog  @relation(fields: [catalogId], references: [id], onDelete: Cascade)
+  imagePath String
+  linkUrl   String?
+  order     Int
+  createdAt DateTime @default(now())
+
+  @@index([catalogId, order])
+}

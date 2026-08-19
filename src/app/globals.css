@@ -1,0 +1,487 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f3efe6;
+  --bg-deep: #e8e0d0;
+  --ink: #14110f;
+  --muted: #5c534a;
+  --accent: #0f6b5c;
+  --accent-soft: #d7ebe6;
+  --danger: #9b2c2c;
+  --card: #fffdf8;
+  --line: #d5cbb8;
+  --display: "Fraunces", Georgia, serif;
+  --sans: "DM Sans", system-ui, sans-serif;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-deep: var(--bg-deep);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --font-display: var(--display);
+  --font-sans: var(--sans);
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 8%, #fff8e8 0%, transparent 42%),
+    radial-gradient(circle at 88% 0%, #dceee9 0%, transparent 36%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+  font-family: var(--sans);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes blob-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(4%, -6%) scale(1.08);
+  }
+  66% {
+    transform: translate(-3%, 4%) scale(0.96);
+  }
+}
+
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes shine-sweep {
+  0% {
+    transform: translateX(-120%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(220%) skewX(-12deg);
+  }
+}
+
+/* Katalog — lüks gloss işıq şeridi (yumşaq halo + nazik parlaq nüvə) */
+@keyframes catalog-page-shine {
+  0%,
+  64% {
+    transform: translateX(-155%) skewX(-14deg);
+    opacity: 0;
+  }
+  68% {
+    opacity: 1;
+  }
+  84% {
+    opacity: 0.88;
+  }
+  92%,
+  100% {
+    transform: translateX(400%) skewX(-14deg);
+    opacity: 0;
+  }
+}
+
+.catalog-page-shine-wrap {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  overflow: hidden;
+}
+
+.catalog-page-shine-glow {
+  position: absolute;
+  inset-block: -10%;
+  left: 0;
+  width: 42%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 244, 220, 0.14) 34%,
+    rgba(255, 255, 255, 0.32) 50%,
+    rgba(255, 236, 200, 0.12) 66%,
+    transparent 100%
+  );
+  filter: blur(14px);
+  mix-blend-mode: soft-light;
+  animation: catalog-page-shine 9s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+}
+
+.catalog-page-shine-core {
+  position: absolute;
+  inset-block: -4%;
+  left: 0;
+  width: 18%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 252, 245, 0.08) 38%,
+    rgba(255, 255, 255, 0.62) 50%,
+    rgba(255, 248, 230, 0.08) 62%,
+    transparent 100%
+  );
+  mix-blend-mode: soft-light;
+  animation: catalog-page-shine 9s cubic-bezier(0.45, 0.05, 0.25, 1) infinite;
+  animation-delay: 0.04s;
+}
+
+.catalog-flip-stage--android .catalog-page-shine-glow {
+  filter: blur(8px);
+  width: 36%;
+}
+
+@keyframes catalog-particle-fall {
+  0% {
+    transform: translateY(-8vh) translateX(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(21vh) translateX(var(--particle-drift, 20px)) rotate(90deg);
+  }
+  50% {
+    transform: translateY(50vh) translateX(0) rotate(180deg);
+  }
+  75% {
+    transform: translateY(79vh) translateX(calc(var(--particle-drift, 20px) * -1)) rotate(270deg);
+  }
+  100% {
+    transform: translateY(108vh) translateX(0) rotate(360deg);
+  }
+}
+
+@keyframes swipe-hint-arrow {
+  0%,
+  100% {
+    transform: translateX(0);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(-6px);
+    opacity: 1;
+  }
+}
+
+/* Səhifə çevirmə istiqamətinə görə fərqli işıq izi — irəli (next) sağdan
+   sola, geri (prev) soldan sağa süzülür. */
+@keyframes flip-trail-next {
+  0% {
+    opacity: 0;
+    transform: translateX(30%);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-55%);
+  }
+}
+
+@keyframes flip-trail-prev {
+  0% {
+    opacity: 0;
+    transform: translateX(-30%);
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(55%);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.animate-pop-in {
+  animation: pop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-blob-float {
+  animation: blob-float 14s ease-in-out infinite;
+}
+
+.animate-ring-pulse {
+  animation: ring-pulse 1.6s ease-out infinite;
+}
+
+.animate-shine-sweep {
+  animation: shine-sweep 2.6s ease-in-out infinite;
+}
+
+@keyframes star-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(var(--star-scale, 1));
+  }
+  25% {
+    transform: rotate(-12deg) scale(var(--star-scale, 1));
+  }
+  75% {
+    transform: rotate(12deg) scale(var(--star-scale, 1));
+  }
+}
+
+@keyframes emoji-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-8deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.25) rotate(4deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes sparkle-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  25% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--sx, 30px), var(--sy, -30px)) scale(1.1) rotate(160deg);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(245, 158, 11, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.65));
+  }
+}
+
+.animate-star-wiggle {
+  animation: star-wiggle 0.4s ease-in-out;
+}
+
+.animate-emoji-pop {
+  animation: emoji-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.animate-sparkle-fly {
+  animation: sparkle-fly 0.9s ease-out forwards;
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes corner-peel {
+  0%,
+  100% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 0.55;
+  }
+  45% {
+    transform: translate(-10px, -10px) rotate(-14deg);
+    opacity: 0.95;
+  }
+  70% {
+    transform: translate(-6px, -6px) rotate(-9deg);
+    opacity: 0.85;
+  }
+}
+
+.animate-corner-peel {
+  animation: corner-peel 1.3s ease-in-out both;
+}
+
+/* Kataloq flipbook — mobil jestlər və ölçülər */
+.catalog-shell,
+.catalog-viewer {
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.catalog-flip-stage {
+  overflow: hidden;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  overscroll-behavior: none;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.2));
+  border-radius: 2px;
+}
+
+/*
+ * Geri çevirme — sağ menteşe peel (FLIP_H prev ile aynı yön).
+ * Altta hedef sayfa sabit; üstteki mevcut sayfa sağa doğru katlanır.
+ * Opak katman + kitap gizli → titreme / çift görüntü yok.
+ */
+@keyframes catalog-prev-roll-out {
+  0% {
+    transform: rotateY(0deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+  40% {
+    box-shadow: -12px 0 28px rgba(0, 0, 0, 0.28);
+  }
+  100% {
+    transform: rotateY(96deg);
+    box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  }
+}
+
+.catalog-prev-roll {
+  perspective: 1600px;
+  perspective-origin: 100% 50%;
+  background: #f7f2e7;
+}
+
+.catalog-prev-roll__base {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.catalog-prev-roll__out {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  transform-origin: right center;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  animation: catalog-prev-roll-out 0.58s cubic-bezier(0.22, 0.82, 0.28, 1) forwards;
+  will-change: transform;
+}
+
+.catalog-prev-roll__shade {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    270deg,
+    rgba(0, 0, 0, 0.22) 0%,
+    transparent 42%
+  );
+  opacity: 0;
+  animation: catalog-prev-roll-shade 0.58s ease forwards;
+}
+
+@keyframes catalog-prev-roll-shade {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.85;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.catalog-flip-stage--android .catalog-prev-roll__out {
+  box-shadow: none !important;
+}
+
+.catalog-flip-stage--android .catalog-prev-roll__shade {
+  display: none;
+}
+
+.catalog-viewer--curl {
+  overflow: visible;
+}
+
+/* Parent clip olmasın deyə stage ətrafında yer — shadow həm də qalsın */
+.catalog-viewer--curl .catalog-flip-stage--curl {
+  margin-inline: 0;
+}
+
+/* Android: filter əvəzinə box-shadow — çevirmə zamanı flaş azalır */
+.catalog-flip-stage--android {
+  filter: none;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+}
+
+.catalog-flip-shell {
+  touch-action: none;
+}
+
+.catalog-flipbook.stf__parent,
+.catalog-flipbook .stf__parent {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  touch-action: none !important;
+}
+
+.catalog-viewer--curl .catalog-flipbook.stf__parent,
+.catalog-viewer--curl .catalog-flipbook .stf__wrapper,
+.catalog-viewer--curl .catalog-flip-shell {
+  overflow: visible !important;
+}
+
+.catalog-flipbook .stf__block,
+.catalog-flipbook .stf__item {
+  touch-action: none;
+}
