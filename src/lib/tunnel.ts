@@ -28,20 +28,50 @@ function normalizeBase(url: string) {
   return url.replace(/\/$/, "");
 }
 
-/** QR / OG için canlı public URL (.data > process.env) */
-export function getPublicAppUrl(): string {
-  const fromEnv = process.env["NEXT_PUBLIC_APP_URL"];
-  if (process.env["VERCEL"]) {
-    if (fromEnv) return normalizeBase(fromEnv);
-    const prod = process.env["VERCEL_PROJECT_PRODUCTION_URL"];
-    if (prod) return normalizeBase(`https://${prod}`);
-    const preview = process.env["VERCEL_URL"];
-    if (preview) return normalizeBase(`https://${preview}`);
+function isDeadPublicUrl(url: string) {
+  const u = url.toLowerCase();
+  return (
+    !u ||
+    u.includes("localhost") ||
+    u.includes("127.0.0.1") ||
+    u.includes("trycloudflare.com")
+  );
+}
+
+function vercelProductionUrl() {
+  const prod = process.env["VERCEL_PROJECT_PRODUCTION_URL"];
+  if (prod) {
+    return normalizeBase(
+      prod.startsWith("http") ? prod : `https://${prod}`,
+    );
   }
+  const preview = process.env["VERCEL_URL"];
+  if (preview) {
+    return normalizeBase(
+      preview.startsWith("http") ? preview : `https://${preview}`,
+    );
+  }
+  return "";
+}
+
+/** QR / OG için canlı public URL */
+export function getPublicAppUrl(): string {
+  const fromEnv = process.env["NEXT_PUBLIC_APP_URL"] || "";
+
+  if (process.env["VERCEL"]) {
+    if (fromEnv && !isDeadPublicUrl(fromEnv)) {
+      return normalizeBase(fromEnv);
+    }
+    const vercel = vercelProductionUrl();
+    if (vercel) return vercel;
+  }
+
   try {
     if (existsSync(RUNTIME_URL_FILE)) {
       const raw = readFileSync(RUNTIME_URL_FILE, "utf8").trim();
-      if (raw) return normalizeBase(raw);
+      if (raw && !(process.env["VERCEL"] && isDeadPublicUrl(raw))) {
+        return normalizeBase(raw);
+      }
     }
   } catch {
     // ignore
