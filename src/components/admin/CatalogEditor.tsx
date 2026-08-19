@@ -258,7 +258,18 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
     setError(null);
     try {
       const list = Array.from(files);
+      const maxBytes =
+        typeof window !== "undefined" &&
+        window.location.hostname.includes("vercel.app")
+          ? 4 * 1024 * 1024
+          : 10 * 1024 * 1024;
       for (let i = 0; i < list.length; i++) {
+        if (list[i].size > maxBytes) {
+          setError(
+            `${list[i].name} çok büyük. Vercel’de görsel en fazla 4 MB olsun (küçültüp tekrar dene).`,
+          );
+          break;
+        }
         setUploadProgress(`${i + 1} / ${list.length} yükleniyor…`);
         const form = new FormData();
         form.append("file", list[i]);

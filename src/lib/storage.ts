@@ -33,7 +33,9 @@ function extFromMime(mime: string, fallback: string) {
 }
 
 function blobEnabled() {
-  return Boolean(process.env["BLOB_READ_WRITE_TOKEN"]);
+  return Boolean(
+    process.env["BLOB_READ_WRITE_TOKEN"] || process.env["VERCEL"],
+  );
 }
 
 export async function saveUpload(
@@ -52,12 +54,21 @@ export async function saveUpload(
       : Buffer.from(await (file as File).arrayBuffer());
 
   if (blobEnabled()) {
-    const blob = await put(relative, buffer, {
-      access: "public",
-      token: process.env["BLOB_READ_WRITE_TOKEN"],
-      addRandomSuffix: false,
-    });
-    return { absolute: blob.url, relative: blob.url, filename };
+    try {
+      const blob = await put(relative, buffer, {
+        access: "public",
+        addRandomSuffix: false,
+        ...(process.env["BLOB_READ_WRITE_TOKEN"]
+          ? { token: process.env["BLOB_READ_WRITE_TOKEN"] }
+          : {}),
+      });
+      return { absolute: blob.url, relative: blob.url, filename };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new Error(
+        `Dosya Vercel’de kaydedilemedi. Storage → Blob store oluşturun ve BLOB_READ_WRITE_TOKEN ekleyin. (${msg})`,
+      );
+    }
   }
 
   await ensureStorageDirs();
