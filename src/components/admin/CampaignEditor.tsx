@@ -277,7 +277,16 @@ export default function CampaignEditor({
     router.push("/admin");
   }
 
-  const publicLink = gameUrl || arUrl;
+  const publicPath = campaign.wheelEnabled
+    ? `/oyun/${campaign.slug}`
+    : `/ar/${campaign.slug}`;
+  let publicOrigin = "";
+  try {
+    publicOrigin = new URL(arUrl || gameUrl || "http://localhost").origin;
+  } catch {
+    publicOrigin = "";
+  }
+  const publicLink = publicOrigin ? `${publicOrigin}${publicPath}` : publicPath;
 
   return (
     <div className="space-y-6">
@@ -288,9 +297,9 @@ export default function CampaignEditor({
             {campaign.name}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {gameUrl ? "Oyun (QR): " : "Görsel (QR): "}
+            {campaign.wheelEnabled ? "Oyun (QR): " : "Görsel (QR): "}
             <a
-              href={`${publicLink}${publicLink.includes("?") ? "&" : "?"}from=admin`}
+              href={`${publicPath}?from=admin`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-accent underline"
@@ -308,9 +317,9 @@ export default function CampaignEditor({
           >
             ← Kampanyalar
           </button>
-          {gameUrl ? (
+          {campaign.wheelEnabled ? (
             <a
-              href={`${gameUrl}${gameUrl.includes("?") ? "&" : "?"}from=admin`}
+              href={`${publicPath}?from=admin`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-md border border-accent/40 bg-accent-soft px-3 py-2 text-sm font-medium text-accent"

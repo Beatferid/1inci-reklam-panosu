@@ -100,11 +100,21 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     ...existing,
     ...data,
   };
-  const willBePublished =
-    (data.status ?? existing.status) === "PUBLISHED";
   const wheelOn = Boolean(merged.wheelEnabled);
   const wheelTurningOff =
     data.wheelEnabled === false && existing.wheelEnabled === true;
+
+  if (wheelOn) {
+    const prizeCount = await prisma.wheelPrize.count({
+      where: { campaignId: id, active: true },
+    });
+    if (prizeCount >= 1) {
+      data.status = "PUBLISHED";
+    }
+  }
+
+  const willBePublished =
+    (data.status ?? existing.status) === "PUBLISHED";
 
   if (willBePublished) {
     const missing: string[] = [];

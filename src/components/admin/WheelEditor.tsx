@@ -392,10 +392,8 @@ export default function WheelEditor({
       }
       if (enabled && cleanClaimPin.length !== 5) {
         setError(
-          "Çark açıkken kasiyer şifresi zorunlu: Aldım için ayrı 5 rakam yazın (market şifresinden farklı).",
+          "Uyarı: kasiyer şifresi yok — çark yine açılır, Aldım kassada çalışmaz. 5 rakam yazıp tekrar kaydedin.",
         );
-        setBusy(false);
-        return;
       }
       if (cleanClaimPin && cleanClaimPin.length !== 5) {
         setError("Kasiyer şifresi boş bırakın veya tam 5 rakam girin.");
@@ -488,6 +486,12 @@ export default function WheelEditor({
         ? "Boş dilim eklendi. Görsel zorunlu değil."
         : "Dilim eklendi. İsim, renk ve şansı karttan düzenleyebilirsiniz; görsel isteğe bağlı.",
     );
+    try {
+      await onCampaignChange({ wheelEnabled: true });
+      setEnabled(true);
+    } catch {
+      // API zaten çarkı açıp yayınlıyor olabilir
+    }
     void loadPrizes();
   }
 

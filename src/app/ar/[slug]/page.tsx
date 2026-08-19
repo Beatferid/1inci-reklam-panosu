@@ -12,8 +12,8 @@ export default async function ArPage({ params }: Props) {
     select: { wheelEnabled: true, status: true },
   });
 
-  // Çarx açıqsa görsel səhifəsi yüklənməsin — birbaşa oyun
-  if (campaign?.status === "PUBLISHED" && campaign.wheelEnabled) {
+  // Eski QR /ar ise bile çark açıksa oyuna git (yayın taslak olsa da)
+  if (campaign?.wheelEnabled) {
     redirect(`/oyun/${slug}`);
   }
 

@@ -10,6 +10,7 @@ import {
 } from "@/lib/wheel";
 import { validateQuotaChain } from "@/lib/wheel-quota-validate";
 import { publicMediaUrl } from "@/lib/storage";
+import { goLiveWithWheel } from "@/lib/wheel-live";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -109,6 +110,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     totalLimit: parsed.data.totalLimit ?? null,
   });
   const limits = await fetchPrizePeriodLimits(prisma, prize.id);
+  await goLiveWithWheel(id);
   return NextResponse.json({
     ...prize,
     ...limits,

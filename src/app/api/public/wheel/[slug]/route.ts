@@ -26,11 +26,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     },
   });
 
-  if (!campaign || campaign.status !== "PUBLISHED") {
-    return NextResponse.json({ error: "Kampaniya tapılmadı" }, { status: 404 });
-  }
-
-  if (!campaign.wheelEnabled) {
+  if (!campaign || !campaign.wheelEnabled) {
     return NextResponse.json(
       { error: "Bu kampaniyada şans çarxı aktiv deyil" },
       { status: 404 },

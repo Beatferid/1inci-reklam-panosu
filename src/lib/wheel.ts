@@ -651,7 +651,7 @@ export async function getWheelSession(
     },
   });
 
-  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.wheelEnabled) {
+  if (!campaign || !campaign.wheelEnabled) {
     return { error: "Çarx bu kampaniyada aktiv deyil.", status: 404 as const };
   }
 
@@ -836,7 +836,7 @@ export async function spinWheel(
     },
   });
 
-  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.wheelEnabled) {
+  if (!campaign || !campaign.wheelEnabled) {
     return { error: "Çarx bu kampaniyada aktiv deyil.", status: 404 as const };
   }
 
@@ -1181,7 +1181,7 @@ export async function claimPrize(
   }
 
   const campaign = await prisma.campaign.findUnique({ where: { slug } });
-  if (!campaign || campaign.status !== "PUBLISHED" || !campaign.wheelEnabled) {
+  if (!campaign || !campaign.wheelEnabled) {
     return { error: "Kampaniya tapılmadı.", status: 404 as const };
   }
 
