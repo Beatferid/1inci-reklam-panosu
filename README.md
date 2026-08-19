@@ -1,4 +1,4 @@
-# Reklam Panosu
+# 1inci Reklam Panosu
 
 QR ile açılan görsel ve şans çarkı. Dijital katalog ve geri bildirim kutuları ayrı. Uygulama indirme yok.
 
