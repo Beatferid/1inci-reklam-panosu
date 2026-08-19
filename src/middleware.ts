@@ -1,23 +1,39 @@
-import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth.config";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export const { auth } = NextAuth(authConfig);
+function hasSessionCookie(req: NextRequest) {
+  return Boolean(
+    req.cookies.get("authjs.session-token")?.value ||
+      req.cookies.get("__Secure-authjs.session-token")?.value ||
+      req.cookies.get("next-auth.session-token")?.value ||
+      req.cookies.get("__Secure-next-auth.session-token")?.value,
+  );
+}
 
-export default auth((req) => {
-  if (!req.auth && req.nextUrl.pathname.startsWith("/admin")) {
-    const url = new URL("/login", req.nextUrl.origin);
-    url.searchParams.set("callbackUrl", req.nextUrl.pathname);
-    return Response.redirect(url);
+export function middleware(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+  const protectedPage = path.startsWith("/admin");
+  const protectedApi =
+    path.startsWith("/api/campaigns") ||
+    path.startsWith("/api/board") ||
+    path.startsWith("/api/admin");
+
+  if (!protectedPage && !protectedApi) {
+    return NextResponse.next();
   }
-  if (
-    !req.auth &&
-    (req.nextUrl.pathname.startsWith("/api/campaigns") ||
-      req.nextUrl.pathname.startsWith("/api/board") ||
-      req.nextUrl.pathname.startsWith("/api/admin"))
-  ) {
-    return Response.json({ error: "Yetkisiz" }, { status: 401 });
+
+  if (hasSessionCookie(req)) {
+    return NextResponse.next();
   }
-});
+
+  if (protectedApi) {
+    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  }
+
+  const url = new URL("/login", req.nextUrl.origin);
+  url.searchParams.set("callbackUrl", path);
+  return NextResponse.redirect(url);
+}
 
 export const config = {
   matcher: [
