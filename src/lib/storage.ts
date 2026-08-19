@@ -33,9 +33,7 @@ function extFromMime(mime: string, fallback: string) {
 }
 
 function blobEnabled() {
-  return Boolean(
-    process.env["BLOB_READ_WRITE_TOKEN"] || process.env["VERCEL"],
-  );
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL);
 }
 
 export async function saveUpload(
@@ -54,19 +52,20 @@ export async function saveUpload(
       : Buffer.from(await (file as File).arrayBuffer());
 
   if (blobEnabled()) {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const storeId = process.env.BLOB_STORE_ID;
     try {
       const blob = await put(relative, buffer, {
         access: "public",
         addRandomSuffix: false,
-        ...(process.env["BLOB_READ_WRITE_TOKEN"]
-          ? { token: process.env["BLOB_READ_WRITE_TOKEN"] }
-          : {}),
+        ...(token ? { token } : {}),
+        ...(storeId ? { storeId } : {}),
       });
       return { absolute: blob.url, relative: blob.url, filename };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       throw new Error(
-        `Dosya Vercel’de kaydedilemedi. Storage → Blob store oluşturun ve BLOB_READ_WRITE_TOKEN ekleyin. (${msg})`,
+        `Dosya Vercel’de kaydedilemedi. BLOB_READ_WRITE_TOKEN Production’da olmalı. (${msg})`,
       );
     }
   }
@@ -124,8 +123,8 @@ export async function readStorageFile(relative: string) {
 export async function deleteStorageFile(relative: string | null | undefined) {
   if (!relative) return;
   try {
-    if (/^https?:\/\//i.test(relative) && blobEnabled()) {
-      await del(relative, { token: process.env["BLOB_READ_WRITE_TOKEN"] });
+    if (/^https?:\/\//i.test(relative) && process.env.BLOB_READ_WRITE_TOKEN) {
+      await del(relative, { token: process.env.BLOB_READ_WRITE_TOKEN });
       return;
     }
     await unlink(resolveStoragePath(relative));
