@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AdminBackLink from "@/components/admin/AdminBackLink";
 import CopyLinkButton from "@/components/admin/CopyLinkButton";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 
 export type CatalogPageDto = {
   id: string;
@@ -58,6 +60,7 @@ const FLIP_OPTIONS: { id: CatalogFlipStyle; label: string; hint: string }[] = [
 ];
 
 export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("settings");
   const [catalog, setCatalog] = useState(initial);
   const [name, setName] = useState(initial.name);
@@ -364,21 +367,32 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <AdminBackLink href="/admin/katalog" label="← Katalog listesi" />
-        <button
-          type="button"
-          disabled={busy || !canPublish}
-          title={!canPublish ? "Yayınlamak için en az 1 sayfa ekleyin" : undefined}
-          onClick={() => void togglePublish()}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
-            catalog.status === "PUBLISHED"
-              ? "border border-line bg-white text-ink hover:bg-bg-deep/40"
-              : "bg-accent text-white"
-          }`}
-        >
-          {catalog.status === "PUBLISHED" ? "Yayından kaldır" : "Yayınla"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy || !canPublish}
+            title={
+              !canPublish ? "Yayınlamak için en az 1 sayfa ekleyin" : undefined
+            }
+            onClick={() => void togglePublish()}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50 ${
+              catalog.status === "PUBLISHED"
+                ? "border border-line bg-white text-ink hover:bg-bg-deep/40"
+                : "bg-accent text-white"
+            }`}
+          >
+            {catalog.status === "PUBLISHED" ? "Yayından kaldır" : "Yayınla"}
+          </button>
+          <DeleteRecordButton
+            endpoint={`/api/admin/catalogs/${catalog.id}`}
+            confirmMessage={`«${catalog.name}» kataloğu ve tüm sayfaları silinsin mi? Bu işlem geri alınamaz.`}
+            redirectTo="/admin/katalog"
+            className="rounded-md border border-danger/40 px-3 py-1.5 text-sm text-danger hover:bg-danger/10 disabled:opacity-60"
+            onDeleted={() => router.refresh()}
+          />
+        </div>
       </div>
 
       <h1 className="mb-1 text-3xl" style={{ fontFamily: "var(--display)" }}>

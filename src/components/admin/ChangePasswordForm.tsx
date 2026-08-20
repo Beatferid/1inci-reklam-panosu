@@ -21,6 +21,16 @@ export default function ChangePasswordForm() {
       setError("Yeni şifreler eşleşmiyor.");
       return;
     }
+    if (newPassword.length < 4) {
+      setBusy(false);
+      setError("Yeni şifre en az 4 karakter olmalı.");
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setBusy(false);
+      setError("Yeni şifre mevcut şifreyle aynı olamaz.");
+      return;
+    }
     const res = await fetch("/api/admin/password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

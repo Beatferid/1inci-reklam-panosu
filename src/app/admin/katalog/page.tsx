@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listCatalogs } from "@/lib/catalog";
 import { catalogEntryUrl } from "@/lib/qr";
 import CopyLinkButton from "@/components/admin/CopyLinkButton";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 
 export const dynamic = "force-dynamic";
 
@@ -93,6 +94,11 @@ export default async function CatalogListPage() {
                           <CopyLinkButton url={catalogEntryUrl(c.slug)} />
                         </>
                       ) : null}
+                      <DeleteRecordButton
+                        endpoint={`/api/admin/catalogs/${c.id}`}
+                        confirmMessage={`«${c.name}» kataloğu ve tüm sayfaları silinsin mi? Bu işlem geri alınamaz.`}
+                        compact
+                      />
                     </div>
                   </td>
                 </tr>

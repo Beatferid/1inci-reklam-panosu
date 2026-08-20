@@ -40,6 +40,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (parsed.data.currentPassword === parsed.data.newPassword) {
+    return NextResponse.json(
+      { error: "Yeni şifre mevcut şifreyle aynı olamaz." },
+      { status: 400 },
+    );
+  }
+
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
   await prisma.user.update({
     where: { id: user.id },

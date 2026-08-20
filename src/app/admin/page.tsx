@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { campaignEntryUrl } from "@/lib/qr";
 import BoardExportButton from "@/components/admin/BoardExportButton";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 
 export const dynamic = "force-dynamic";
 
@@ -102,6 +103,11 @@ export default async function AdminHomePage() {
                           Önizle
                         </a>
                       ) : null}
+                      <DeleteRecordButton
+                        endpoint={`/api/campaigns/${c.id}`}
+                        confirmMessage={`«${c.name}» kampanyası silinsin mi? Bu işlem geri alınamaz.`}
+                        compact
+                      />
                     </div>
                   </td>
                 </tr>

@@ -3,6 +3,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import AdminBackLink from "@/components/admin/AdminBackLink";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 import WheelEditor from "@/components/admin/WheelEditor";
 import { publicMediaUrl } from "@/lib/media-url";
 
@@ -265,18 +266,6 @@ export default function CampaignEditor({
     void refresh();
   }
 
-  async function remove() {
-    if (!confirm("Kampanya silinsin mi?")) return;
-    const res = await fetch(`/api/campaigns/${campaign.id}`, {
-      method: "DELETE",
-    });
-    if (!res.ok) {
-      setError("Silinemedi");
-      return;
-    }
-    router.push("/admin");
-  }
-
   const publicPath = campaign.wheelEnabled
     ? `/oyun/${campaign.slug}`
     : `/ar/${campaign.slug}`;
@@ -345,13 +334,11 @@ export default function CampaignEditor({
               Yayınla
             </button>
           )}
-          <button
-            type="button"
-            onClick={remove}
-            className="rounded-md border border-danger/40 px-3 py-2 text-sm text-danger"
-          >
-            Sil
-          </button>
+          <DeleteRecordButton
+            endpoint={`/api/campaigns/${campaign.id}`}
+            confirmMessage={`«${campaign.name}» kampanyası silinsin mi? Bu işlem geri alınamaz.`}
+            redirectTo="/admin"
+          />
         </div>
       </div>
 

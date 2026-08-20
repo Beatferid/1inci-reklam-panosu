@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AdminBackLink from "@/components/admin/AdminBackLink";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 import LocationEditor from "@/components/admin/LocationEditor";
 import FeedbackEntriesTable from "@/components/admin/FeedbackEntriesTable";
 import FeedbackDevicesTable from "@/components/admin/FeedbackDevicesTable";
@@ -28,6 +30,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function FeedbackBoxEditor({ initial }: { initial: FeedbackBoxDto }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("settings");
   const [box, setBox] = useState(initial);
   const [name, setName] = useState(initial.name);
@@ -77,20 +80,32 @@ export default function FeedbackBoxEditor({ initial }: { initial: FeedbackBoxDto
 
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <AdminBackLink href="/admin/geri-bildirim" label="← Geri bildirim kutuları" />
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void togglePublish()}
-          className={`rounded-md px-3 py-1.5 text-sm font-medium ${
-            box.status === "PUBLISHED"
-              ? "border border-line bg-white text-ink hover:bg-bg-deep/40"
-              : "bg-accent text-white"
-          }`}
-        >
-          {box.status === "PUBLISHED" ? "Yayından kaldır" : "Yayınla"}
-        </button>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <AdminBackLink
+          href="/admin/geri-bildirim"
+          label="← Geri bildirim kutuları"
+        />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void togglePublish()}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${
+              box.status === "PUBLISHED"
+                ? "border border-line bg-white text-ink hover:bg-bg-deep/40"
+                : "bg-accent text-white"
+            }`}
+          >
+            {box.status === "PUBLISHED" ? "Yayından kaldır" : "Yayınla"}
+          </button>
+          <DeleteRecordButton
+            endpoint={`/api/admin/feedback-boxes/${box.id}`}
+            confirmMessage={`«${box.name}» kutusu, gönderimler ve şubeler silinsin mi? Bu işlem geri alınamaz.`}
+            redirectTo="/admin/geri-bildirim"
+            className="rounded-md border border-danger/40 px-3 py-1.5 text-sm text-danger hover:bg-danger/10 disabled:opacity-60"
+            onDeleted={() => router.refresh()}
+          />
+        </div>
       </div>
 
       <h1 className="mb-1 text-3xl" style={{ fontFamily: "var(--display)" }}>

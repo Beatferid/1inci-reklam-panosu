@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { feedbackEntryUrl } from "@/lib/qr";
+import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
 
 export const dynamic = "force-dynamic";
 
@@ -98,6 +99,11 @@ export default async function FeedbackBoxListPage() {
                           Önizle
                         </a>
                       ) : null}
+                      <DeleteRecordButton
+                        endpoint={`/api/admin/feedback-boxes/${b.id}`}
+                        confirmMessage={`«${b.name}» kutusu, gönderimler ve şubeler silinsin mi? Bu işlem geri alınamaz.`}
+                        compact
+                      />
                     </div>
                   </td>
                 </tr>
