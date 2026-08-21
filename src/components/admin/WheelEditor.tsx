@@ -10,6 +10,12 @@ import {
 } from "react";
 import WheelAnalyticsPanel from "@/components/admin/WheelAnalyticsPanel";
 import LocationEditor from "@/components/admin/LocationEditor";
+import { useLocale } from "@/components/i18n/LocaleProvider";
+import {
+  LOCALES,
+  LOCALE_LABELS,
+  type Locale,
+} from "@/lib/i18n/locales";
 import {
   CHANCE_PRESETS,
   SLICE_COLORS,
@@ -89,6 +95,11 @@ type Props = {
   claimPin?: string;
   wheelAskName?: boolean;
   wheelNameRequired?: boolean;
+  wheelTitle?: string;
+  wheelLogoUrl?: string | null;
+  wheelWinnersEnabled?: boolean;
+  wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
+  wheelDefaultLocale?: Locale;
   onCampaignChange: (patch: {
     wheelEnabled?: boolean;
     spinsPerPlayerPerDay?: number;
@@ -100,12 +111,21 @@ type Props = {
     claimPin?: string;
     wheelAskName?: boolean;
     wheelNameRequired?: boolean;
+    wheelTitle?: string | null;
+    wheelWinnersEnabled?: boolean;
+    wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
+    wheelDefaultLocale?: Locale;
   }) => Promise<
     | void
     | {
         spinPin?: string;
         claimPin?: string;
         requireClaimPin?: boolean;
+        wheelTitle?: string;
+        wheelLogoUrl?: string | null;
+        wheelWinnersEnabled?: boolean;
+        wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
+        wheelDefaultLocale?: Locale;
       }
   >;
 };
@@ -122,8 +142,14 @@ export default function WheelEditor({
   claimPin = "",
   wheelAskName = false,
   wheelNameRequired = false,
+  wheelTitle: initialWheelTitle = "",
+  wheelLogoUrl: initialLogoUrl = null,
+  wheelWinnersEnabled = false,
+  wheelWinnersPeriod = "DAY",
+  wheelDefaultLocale: initialDefaultLocale = "az",
   onCampaignChange,
 }: Props) {
+  const { t } = useLocale();
   const [prizes, setPrizes] = useState<Prize[]>([]);
   const [enabled, setEnabled] = useState(wheelEnabled);
   const [spinsDay, setSpinsDay] = useState(spinsPerPlayerPerDay);
@@ -135,6 +161,13 @@ export default function WheelEditor({
   const [cashierPin, setCashierPin] = useState(claimPin);
   const [askName, setAskName] = useState(wheelAskName);
   const [nameRequired, setNameRequired] = useState(wheelNameRequired);
+  const [wheelTitle, setWheelTitle] = useState(initialWheelTitle);
+  const [logoUrl, setLogoUrl] = useState<string | null>(initialLogoUrl);
+  const [winnersOn, setWinnersOn] = useState(wheelWinnersEnabled);
+  const [winnersPeriod, setWinnersPeriod] = useState<"DAY" | "WEEK" | "MONTH">(
+    wheelWinnersPeriod,
+  );
+  const [defaultLocale, setDefaultLocale] = useState<Locale>(initialDefaultLocale);
   const [name, setName] = useState("");
   const [weight, setWeight] = useState(10);
   const [dailyLimit, setDailyLimit] = useState<string>("");
@@ -203,6 +236,11 @@ export default function WheelEditor({
     setCashierPin(claimPin);
     setAskName(wheelAskName);
     setNameRequired(wheelNameRequired);
+    setWheelTitle(initialWheelTitle);
+    setLogoUrl(initialLogoUrl);
+    setWinnersOn(wheelWinnersEnabled);
+    setWinnersPeriod(wheelWinnersPeriod);
+    setDefaultLocale(initialDefaultLocale);
   }, [
     wheelEnabled,
     spinsPerPlayerPerDay,
@@ -214,6 +252,11 @@ export default function WheelEditor({
     claimPin,
     wheelAskName,
     wheelNameRequired,
+    initialWheelTitle,
+    initialLogoUrl,
+    wheelWinnersEnabled,
+    wheelWinnersPeriod,
+    initialDefaultLocale,
   ]);
 
   useEffect(() => {
@@ -403,11 +446,6 @@ export default function WheelEditor({
         setBusy(false);
         return;
       }
-      if (enabled && cleanClaimPin.length !== 5) {
-        setError(
-          "Uyarı: kasiyer şifresi yok — çark yine açılır, Aldım kassada çalışmaz. 5 rakam yazıp tekrar kaydedin.",
-        );
-      }
       if (cleanClaimPin && cleanClaimPin.length !== 5) {
         setError("Kasiyer şifresi boş bırakın veya tam 5 rakam girin.");
         setBusy(false);
@@ -434,6 +472,10 @@ export default function WheelEditor({
         claimPin: cleanClaimPin,
         wheelAskName: askName,
         wheelNameRequired: askName ? nameRequired : false,
+        wheelTitle: wheelTitle.trim() || null,
+        wheelWinnersEnabled: winnersOn,
+        wheelWinnersPeriod: winnersPeriod,
+        wheelDefaultLocale: defaultLocale,
       });
       const savedClaim =
         saved && typeof saved === "object" && "claimPin" in saved
@@ -443,14 +485,16 @@ export default function WheelEditor({
       if (wasEnabled !== enabled) {
         setMessage(
           enabled
-            ? `Çark açıldı. Kasiyer PIN ${claimOk ? "kayıtlı ✓" : "EKSİK ✗"}. QR artık /oyun — «QR yeniden derle».`
+            ? `Çark açıldı. Kasiyer PIN ${claimOk ? "aktif ✓" : "yok (Aldım PIN sormaz)"}. QR artık /oyun — «QR yeniden derle».`
             : "Çark kapatıldı. QR görsel sayfasına dönmeli — üstte «QR yeniden derle» yapın.",
         );
       } else {
         setMessage(
-          claimOk
-            ? "Çark ayarları kaydedildi. Kasiyer PIN kayıtlı ✓ — Aldım’da sorulacak."
-            : "Kaydedildi ama kasiyer PIN yok — Aldım çalışmaz. 5 rakam yazıp tekrar kaydedin.",
+          winnersOn
+            ? `Kaydedildi. Qazananlar açık (${winnersPeriod}). Müşteri QR’ı yeniden okutsun — liste görünsün.`
+            : claimOk
+              ? "Çark ayarları kaydedildi. Kasiyer PIN aktif — Aldım’da sorulacak."
+              : "Kaydedildi. Kasiyer PIN boş — müşteri Aldım derken şifre sorulmaz.",
         );
       }
     } catch {
@@ -723,13 +767,9 @@ export default function WheelEditor({
   return (
     <div className="space-y-4 rounded-xl border border-line bg-card p-5">
       <h2 className="text-lg" style={{ fontFamily: "var(--display)" }}>
-        2) Şans çarkı
+        2) {t("wheelSection")}
       </h2>
-      <p className="text-xs text-muted">
-        Müşteri QR ile /oyun sayfasında çarkı çevirir. Kazanınca kasada
-        &quot;Hediyelerim → Aldım&quot; ile teslim onaylanır. Hediye görseli
-        isteğe bağlıdır.
-      </p>
+      <p className="text-xs text-muted">{t("wheelIntro")}</p>
 
       <form onSubmit={saveSettings} className="space-y-3">
         <label className="flex items-center gap-2 text-sm">
@@ -738,7 +778,7 @@ export default function WheelEditor({
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
           />
-          Şans çarkını aç
+          {t("wheelEnable")}
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block text-sm">
@@ -829,20 +869,161 @@ export default function WheelEditor({
               className="w-36 rounded-md border border-line bg-white px-3 py-2 tracking-[0.3em]"
             />
             <span className="mt-1 block text-xs text-muted">
-              Market şifresinden ayrı olmalı. Müşteri Aldım derken kasiyer bu
-              şifreyi girer. Çark açıkken zorunlu — kaydetmeden telefon testi
-              yapmayın.
+              İsteğe bağlı. Boş bırakırsanız müşteri «Aldım» derken PIN
+              sorulmaz; 5 rakam yazarsanız kasiyer onayı gerekir. Market
+              şifresinden farklı olmalı.
             </span>
             {claimPin && claimPin.length === 5 ? (
               <span className="mt-1 block text-xs font-semibold text-emerald-700">
-                Sunucuda kasiyer PIN kayıtlı ✓
+                Sunucuda kasiyer PIN kayıtlı ✓ — Aldım’da sorulur
               </span>
             ) : (
-              <span className="mt-1 block text-xs font-semibold text-amber-800">
-                Sunucuda kasiyer PIN yok — Aldım PIN sormadan / teslim
-                etmeden kalır. 5 rakam yazıp «Kaydet».
+              <span className="mt-1 block text-xs font-semibold text-sky-800">
+                Kasiyer PIN yok — Aldım şifresiz onaylanır
               </span>
             )}
+          </label>
+        </div>
+
+        <div className="rounded-lg border border-line bg-white/70 p-3 space-y-3">
+          <p className="text-sm font-semibold text-ink">{t("brandBlock")}</p>
+          <label className="block text-sm">
+            {t("pageTitle")}
+            <input
+              type="text"
+              maxLength={80}
+              value={wheelTitle}
+              onChange={(e) => setWheelTitle(e.target.value.slice(0, 80))}
+              placeholder={t("pageTitlePh")}
+              className="mt-1 w-full rounded-md border border-line bg-white px-3 py-2"
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt=""
+                className="h-14 w-14 rounded-xl object-cover ring-1 ring-line"
+              />
+            ) : (
+              <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-surface text-xs text-muted ring-1 ring-line">
+                Logo
+              </span>
+            )}
+            <label className="cursor-pointer rounded-md border border-line bg-white px-3 py-2 text-sm font-medium hover:bg-surface">
+              {t("uploadLogo")}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  setBusy(true);
+                  setError(null);
+                  try {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    const res = await fetch(
+                      `/api/campaigns/${campaignId}/wheel/logo`,
+                      { method: "POST", body: fd },
+                    );
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || "Yüklenemedi");
+                    setLogoUrl(data.wheelLogoUrl || null);
+                    setMessage("Logo kaydedildi");
+                  } catch (err) {
+                    setError(
+                      err instanceof Error ? err.message : "Logo yüklenemedi",
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              />
+            </label>
+            {logoUrl ? (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    const res = await fetch(
+                      `/api/campaigns/${campaignId}/wheel/logo`,
+                      { method: "DELETE" },
+                    );
+                    if (!res.ok) throw new Error("Silinemedi");
+                    setLogoUrl(null);
+                    setMessage("Logo kaldırıldı");
+                  } catch {
+                    setError("Logo silinemedi");
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+                className="text-sm text-red-700 underline disabled:opacity-50"
+              >
+                {t("removeLogo")}
+              </button>
+            ) : null}
+          </div>
+          <label className="block text-sm">
+            {t("defaultLocale")}
+            <select
+              value={defaultLocale}
+              onChange={(e) =>
+                setDefaultLocale(e.target.value as Locale)
+              }
+              className="mt-1 w-full max-w-xs rounded-md border border-line bg-white px-3 py-2"
+            >
+              {LOCALES.map((code) => (
+                <option key={code} value={code}>
+                  {LOCALE_LABELS[code]} ({code.toUpperCase()})
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-muted">
+              {t("defaultLocaleHint")}
+            </span>
+          </label>
+        </div>
+
+        <div className="rounded-lg border border-amber-200/80 bg-amber-50/60 p-3 space-y-3">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={winnersOn}
+              onChange={(e) => setWinnersOn(e.target.checked)}
+            />
+            <span>
+              {t("winnersShow")}
+              <span className="mt-0.5 block text-xs text-muted">
+                {t("winnersHint")}
+              </span>
+            </span>
+          </label>
+          <label
+            className={`block text-sm ${winnersOn ? "" : "opacity-50"}`}
+          >
+            {t("winnersPeriod")}
+            <select
+              disabled={!winnersOn}
+              value={winnersPeriod}
+              onChange={(e) =>
+                setWinnersPeriod(
+                  e.target.value as "DAY" | "WEEK" | "MONTH",
+                )
+              }
+              className="mt-1 w-full max-w-xs rounded-md border border-line bg-white px-3 py-2"
+            >
+              <option value="DAY">{t("periodDay")}</option>
+              <option value="WEEK">{t("periodWeek")}</option>
+              <option value="MONTH">{t("periodMonth")}</option>
+            </select>
           </label>
         </div>
 
@@ -854,7 +1035,7 @@ export default function WheelEditor({
             onChange={(e) => setShowNames(e.target.checked)}
           />
           <span>
-            Çarkta hediye adlarını göster
+            {t("showNames")}
             <span className="mt-0.5 block text-xs text-muted">
               Kapalıysa dilimlerde sadece numara görünür.
             </span>
@@ -916,7 +1097,7 @@ export default function WheelEditor({
           disabled={busy}
           className="rounded-md border border-line px-3 py-2 text-sm hover:bg-white disabled:opacity-60"
         >
-          Ayarları kaydet
+          {t("save")}
         </button>
       </form>
 

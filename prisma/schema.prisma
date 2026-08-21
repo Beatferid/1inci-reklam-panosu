@@ -55,6 +55,16 @@ model Campaign {
   wheelAskName         Boolean        @default(false)
   /** Ad-soyad zorunlu (yalnızca wheelAskName açıkken anlamlı) */
   wheelNameRequired    Boolean        @default(false)
+  /** Müşteri çark sayfası başlığı (boşsa kampanya adı) */
+  wheelTitle           String?
+  /** Çark / oyun sayfası logosu */
+  wheelLogoPath        String?
+  /** Müşteriye kazananlar listesini göster */
+  wheelWinnersEnabled  Boolean        @default(false)
+  /** DAY | WEEK | MONTH */
+  wheelWinnersPeriod   String         @default("DAY")
+  /** az | tr | en | ru — müşteri çark varsayılan dili */
+  wheelDefaultLocale   String         @default("az")
   geoEnabled           Boolean        @default(false)
   geoLat               Float?
   geoLng               Float?

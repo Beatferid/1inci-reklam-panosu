@@ -611,7 +611,7 @@ function checkPin(
   return null;
 }
 
-/** Aldım / kasa teslimi — kasiyer PIN (claimPin), market spinPin'den ayrı */
+/** Aldım / kasa teslimi — kasiyer PIN varsa doğrula; boşsa PIN sorma */
 function checkClaimPin(
   display: WheelDisplaySettings,
   pinRaw: string | null | undefined,
@@ -619,11 +619,7 @@ function checkClaimPin(
   clientIp?: string | null,
 ) {
   if (!display.claimPin || display.claimPin.length !== 5) {
-    return {
-      error:
-        "Kassir şifrəsi təyin edilməyib. Admin paneldə ayrı 5 rəqəmli kassir şifrəsi yazın.",
-      status: 400 as const,
-    };
+    return null;
   }
   const rateKey = pinRateKey(`claim:${slug}`, (clientIp || "unknown").slice(0, 64));
   const limited = checkPinRateLimit(rateKey);
@@ -841,6 +837,10 @@ export async function getWheelSession(
       wins,
       showPrizeNames: pub.wheelShowPrizeNames,
       equalSlices: pub.wheelEqualSlices,
+      wheelTitle: pub.wheelTitle || campaign.name,
+      wheelLogoUrl: pub.wheelLogoUrl,
+      winnersEnabled: pub.wheelWinnersEnabled,
+      winnersPeriod: pub.wheelWinnersPeriod,
       locationId: geoCheck.match?.location.id ?? null,
       locationName: geoCheck.match
         ? locationLabel(geoCheck.match.location)
@@ -1383,4 +1383,95 @@ export async function claimPrize(
   }
 
   return result;
+}
+
+export type PublicWinnerRow = {
+  id: string;
+  displayName: string;
+  prizeName: string;
+  prizeImageUrl: string | null;
+  spunAt: string;
+  spunAtLabel: string;
+  claimed: boolean;
+};
+
+/** Müşteri kazananlar panosu — yalnızca ayar açıksa */
+export async function getPublicWinners(slug: string) {
+  const campaign = await prisma.campaign.findUnique({
+    where: { slug },
+    select: { id: true, name: true, wheelEnabled: true },
+  });
+  if (!campaign || !campaign.wheelEnabled) {
+    return { error: "Kampaniya tapılmadı", status: 404 as const };
+  }
+
+  let display: WheelDisplaySettings;
+  try {
+    display = await getWheelDisplaySettings(campaign.id);
+  } catch (err) {
+    return settingsUnavailableResult(err);
+  }
+
+  if (!display.wheelWinnersEnabled) {
+    return {
+      status: 200 as const,
+      data: {
+        enabled: false as const,
+        period: display.wheelWinnersPeriod,
+        from: istanbulDayKey(),
+        to: istanbulDayKey(),
+        title: display.wheelTitle || campaign.name,
+        logoUrl: display.wheelLogoUrl,
+        winners: [] as PublicWinnerRow[],
+      },
+    };
+  }
+
+  const period = display.wheelWinnersPeriod;
+  const bounds =
+    period === "WEEK"
+      ? istanbulWeekBounds()
+      : period === "MONTH"
+        ? istanbulMonthBounds()
+        : { from: istanbulDayKey(), to: istanbulDayKey() };
+
+  await expireStaleWins(campaign.id, display.claimWindowMinutes);
+
+  const spins = await prisma.wheelSpin.findMany({
+    where: {
+      campaignId: campaign.id,
+      won: true,
+      cancelledAt: null,
+      dayKey: { gte: bounds.from, lte: bounds.to },
+    },
+    include: { player: true, prize: true },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  const winners: PublicWinnerRow[] = spins.map((s) => {
+    const name = s.player.fullName?.trim();
+    return {
+      id: s.id,
+      displayName: name && name.length >= 2 ? name : maskPhone(s.player.phone),
+      prizeName: s.prize.name,
+      prizeImageUrl: publicMediaUrl(s.prize.imagePath),
+      spunAt: s.createdAt.toISOString(),
+      spunAtLabel: formatIstanbul(s.createdAt),
+      claimed: Boolean(s.claimedAt),
+    };
+  });
+
+  return {
+    status: 200 as const,
+    data: {
+      enabled: true as const,
+      period,
+      from: bounds.from,
+      to: bounds.to,
+      title: display.wheelTitle || campaign.name,
+      logoUrl: display.wheelLogoUrl,
+      winners,
+    },
+  };
 }

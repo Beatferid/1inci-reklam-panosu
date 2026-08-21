@@ -34,6 +34,10 @@ const updateSchema = z.object({
     .optional(),
   wheelAskName: z.boolean().optional(),
   wheelNameRequired: z.boolean().optional(),
+  wheelTitle: z.string().max(80).nullable().optional(),
+  wheelWinnersEnabled: z.boolean().optional(),
+  wheelWinnersPeriod: z.enum(["DAY", "WEEK", "MONTH"]).optional(),
+  wheelDefaultLocale: z.enum(["az", "tr", "en", "ru"]).optional(),
   geoEnabled: z.boolean().optional(),
   geoLat: z.number().min(-90).max(90).nullable().optional(),
   geoLng: z.number().min(-180).max(180).nullable().optional(),
@@ -83,6 +87,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     claimPin,
     wheelAskName,
     wheelNameRequired,
+    wheelTitle,
+    wheelWinnersEnabled,
+    wheelWinnersPeriod,
+    wheelDefaultLocale,
     geoEnabled,
     geoLat,
     geoLng,
@@ -171,7 +179,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     spinPin !== undefined ||
     claimPin !== undefined ||
     wheelAskName !== undefined ||
-    wheelNameRequired !== undefined
+    wheelNameRequired !== undefined ||
+    wheelTitle !== undefined ||
+    wheelWinnersEnabled !== undefined ||
+    wheelWinnersPeriod !== undefined ||
+    wheelDefaultLocale !== undefined
   ) {
     display = await setWheelDisplaySettings(id, {
       wheelShowPrizeNames,
@@ -182,6 +194,10 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       claimPin,
       wheelAskName,
       wheelNameRequired,
+      wheelTitle: wheelTitle === null ? "" : wheelTitle,
+      wheelWinnersEnabled,
+      wheelWinnersPeriod,
+      wheelDefaultLocale,
     });
   }
 

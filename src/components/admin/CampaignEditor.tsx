@@ -33,6 +33,11 @@ export type CampaignDto = {
   requireClaimPin?: boolean;
   wheelAskName?: boolean;
   wheelNameRequired?: boolean;
+  wheelTitle?: string;
+  wheelLogoUrl?: string | null;
+  wheelWinnersEnabled?: boolean;
+  wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
+  wheelDefaultLocale?: "az" | "tr" | "en" | "ru";
   geoEnabled?: boolean;
   geoLat?: number | null;
   geoLng?: number | null;
@@ -66,6 +71,20 @@ export default function CampaignEditor({
     claimPin: initial.claimPin ?? "",
     wheelAskName: Boolean(initial.wheelAskName),
     wheelNameRequired: Boolean(initial.wheelNameRequired),
+    wheelTitle: initial.wheelTitle ?? "",
+    wheelLogoUrl: initial.wheelLogoUrl ?? null,
+    wheelWinnersEnabled: Boolean(initial.wheelWinnersEnabled),
+    wheelWinnersPeriod:
+      initial.wheelWinnersPeriod === "WEEK" ||
+      initial.wheelWinnersPeriod === "MONTH"
+        ? initial.wheelWinnersPeriod
+        : "DAY",
+    wheelDefaultLocale:
+      initial.wheelDefaultLocale === "tr" ||
+      initial.wheelDefaultLocale === "en" ||
+      initial.wheelDefaultLocale === "ru"
+        ? initial.wheelDefaultLocale
+        : "az",
     geoEnabled: Boolean(initial.geoEnabled),
     geoLat: initial.geoLat ?? null,
     geoLng: initial.geoLng ?? null,
@@ -584,6 +603,22 @@ export default function CampaignEditor({
         claimPin={campaign.claimPin ?? ""}
         wheelAskName={Boolean(campaign.wheelAskName)}
         wheelNameRequired={Boolean(campaign.wheelNameRequired)}
+        wheelTitle={campaign.wheelTitle ?? ""}
+        wheelLogoUrl={campaign.wheelLogoUrl ?? null}
+        wheelWinnersEnabled={Boolean(campaign.wheelWinnersEnabled)}
+        wheelWinnersPeriod={
+          campaign.wheelWinnersPeriod === "WEEK" ||
+          campaign.wheelWinnersPeriod === "MONTH"
+            ? campaign.wheelWinnersPeriod
+            : "DAY"
+        }
+        wheelDefaultLocale={
+          campaign.wheelDefaultLocale === "tr" ||
+          campaign.wheelDefaultLocale === "en" ||
+          campaign.wheelDefaultLocale === "ru"
+            ? campaign.wheelDefaultLocale
+            : "az"
+        }
         onCampaignChange={async (patch) => {
           const res = await fetch(`/api/campaigns/${campaign.id}`, {
             method: "PATCH",

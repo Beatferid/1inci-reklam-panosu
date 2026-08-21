@@ -1,4 +1,8 @@
 import { prisma } from "@/lib/prisma";
+import { publicMediaUrl } from "@/lib/storage";
+import { normalizeLocale, type Locale } from "@/lib/i18n/locales";
+
+export type WinnersPeriod = "DAY" | "WEEK" | "MONTH";
 
 export type WheelDisplaySettings = {
   wheelShowPrizeNames: boolean;
@@ -8,13 +12,19 @@ export type WheelDisplaySettings = {
   /** Müşteri giriş / çevirme — market şifresi */
   spinPin: string;
   requirePin: boolean;
-  /** Kasiyer Aldım onayı — ayrı şifre */
+  /** Kasiyer Aldım onayı — ayrı şifre; boşsa PIN sorulmaz */
   claimPin: string;
   requireClaimPin: boolean;
   /** Girişte ad-soyad alanı */
   wheelAskName: boolean;
   /** Ad-soyad zorunlu (askName kapalıysa false) */
   wheelNameRequired: boolean;
+  wheelTitle: string;
+  wheelLogoPath: string | null;
+  wheelLogoUrl: string | null;
+  wheelWinnersEnabled: boolean;
+  wheelWinnersPeriod: WinnersPeriod;
+  wheelDefaultLocale: Locale;
 };
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
@@ -26,6 +36,12 @@ function clampInt(n: unknown, min: number, max: number, fallback: number) {
 function normalizePin(raw: unknown): string {
   const s = String(raw ?? "").replace(/\D/g, "").slice(0, 5);
   return s.length === 5 ? s : "";
+}
+
+export function normalizeWinnersPeriod(raw: unknown): WinnersPeriod {
+  const s = String(raw ?? "").toUpperCase();
+  if (s === "WEEK" || s === "MONTH") return s;
+  return "DAY";
 }
 
 export class WheelSettingsUnavailableError extends Error {
@@ -51,11 +67,17 @@ export async function getWheelDisplaySettings(
         claimPin: true,
         wheelAskName: true,
         wheelNameRequired: true,
+        wheelTitle: true,
+        wheelLogoPath: true,
+        wheelWinnersEnabled: true,
+        wheelWinnersPeriod: true,
+        wheelDefaultLocale: true,
       },
     });
     const spinPin = normalizePin(row?.spinPin);
     const claimPin = normalizePin(row?.claimPin);
     const wheelAskName = Boolean(row?.wheelAskName);
+    const logoPath = row?.wheelLogoPath ?? null;
     return {
       wheelShowPrizeNames: Boolean(row?.wheelShowPrizeNames),
       wheelEqualSlices:
@@ -70,6 +92,12 @@ export async function getWheelDisplaySettings(
       requireClaimPin: claimPin.length === 5,
       wheelAskName,
       wheelNameRequired: wheelAskName && Boolean(row?.wheelNameRequired),
+      wheelTitle: String(row?.wheelTitle || "").trim().slice(0, 80),
+      wheelLogoPath: logoPath,
+      wheelLogoUrl: publicMediaUrl(logoPath),
+      wheelWinnersEnabled: Boolean(row?.wheelWinnersEnabled),
+      wheelWinnersPeriod: normalizeWinnersPeriod(row?.wheelWinnersPeriod),
+      wheelDefaultLocale: normalizeLocale(row?.wheelDefaultLocale, "az"),
     };
   } catch (err) {
     if (err instanceof WheelSettingsUnavailableError) throw err;
@@ -80,9 +108,13 @@ export async function getWheelDisplaySettings(
 export async function setWheelDisplaySettings(
   campaignId: string,
   patch: Partial<
-    Omit<WheelDisplaySettings, "requirePin" | "requireClaimPin"> & {
+    Omit<
+      WheelDisplaySettings,
+      "requirePin" | "requireClaimPin" | "wheelLogoUrl" | "wheelLogoPath"
+    > & {
       spinPin?: string | null;
       claimPin?: string | null;
+      wheelLogoPath?: string | null;
     }
   >,
 ): Promise<WheelDisplaySettings> {
@@ -101,6 +133,8 @@ export async function setWheelDisplaySettings(
     (patch.wheelNameRequired !== undefined
       ? Boolean(patch.wheelNameRequired)
       : current.wheelNameRequired);
+  const wheelWinnersEnabled =
+    patch.wheelWinnersEnabled ?? current.wheelWinnersEnabled;
   const next: WheelDisplaySettings = {
     wheelShowPrizeNames:
       patch.wheelShowPrizeNames ?? current.wheelShowPrizeNames,
@@ -114,7 +148,26 @@ export async function setWheelDisplaySettings(
     requireClaimPin: nextClaimPin.length === 5,
     wheelAskName,
     wheelNameRequired,
+    wheelTitle:
+      patch.wheelTitle !== undefined
+        ? String(patch.wheelTitle || "").trim().slice(0, 80)
+        : current.wheelTitle,
+    wheelLogoPath:
+      patch.wheelLogoPath !== undefined
+        ? patch.wheelLogoPath
+        : current.wheelLogoPath,
+    wheelLogoUrl: null,
+    wheelWinnersEnabled,
+    wheelWinnersPeriod:
+      patch.wheelWinnersPeriod !== undefined
+        ? normalizeWinnersPeriod(patch.wheelWinnersPeriod)
+        : current.wheelWinnersPeriod,
+    wheelDefaultLocale:
+      patch.wheelDefaultLocale !== undefined
+        ? normalizeLocale(patch.wheelDefaultLocale, "az")
+        : current.wheelDefaultLocale,
   };
+  next.wheelLogoUrl = publicMediaUrl(next.wheelLogoPath);
   await prisma.campaign.update({
     where: { id: campaignId },
     data: {
@@ -126,6 +179,11 @@ export async function setWheelDisplaySettings(
       claimPin: next.claimPin,
       wheelAskName: next.wheelAskName,
       wheelNameRequired: next.wheelNameRequired,
+      wheelTitle: next.wheelTitle || null,
+      wheelLogoPath: next.wheelLogoPath,
+      wheelWinnersEnabled: next.wheelWinnersEnabled,
+      wheelWinnersPeriod: next.wheelWinnersPeriod,
+      wheelDefaultLocale: next.wheelDefaultLocale,
     },
   });
   return next;
@@ -159,5 +217,10 @@ export function publicWheelSettings(settings: WheelDisplaySettings) {
     requireClaimPin: settings.requireClaimPin,
     wheelAskName: settings.wheelAskName,
     wheelNameRequired: settings.wheelNameRequired,
+    wheelTitle: settings.wheelTitle,
+    wheelLogoUrl: settings.wheelLogoUrl,
+    wheelWinnersEnabled: settings.wheelWinnersEnabled,
+    wheelWinnersPeriod: settings.wheelWinnersPeriod,
+    wheelDefaultLocale: settings.wheelDefaultLocale,
   };
 }

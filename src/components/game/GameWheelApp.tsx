@@ -4,6 +4,9 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import GameWheel, { type WheelSlice } from "@/components/game/GameWheel";
 import WinShowcase from "@/components/game/WinShowcase";
 import EmptyShowcase from "@/components/game/EmptyShowcase";
+import WinnersBoard from "@/components/game/WinnersBoard";
+import LanguageSwitcher from "@/components/i18n/LanguageSwitcher";
+import { useLocale } from "@/components/i18n/LocaleProvider";
 import {
   SPIN_DURATION_MS,
   playClick,
@@ -60,6 +63,10 @@ type SessionData = {
   claimWindowMinutes?: number;
   requirePin?: boolean;
   requireClaimPin?: boolean;
+  wheelTitle?: string;
+  wheelLogoUrl?: string | null;
+  winnersEnabled?: boolean;
+  winnersPeriod?: "DAY" | "WEEK" | "MONTH";
   nextSpinInSeconds?: number;
   blockReason?: "daily" | "cooldown" | null;
   pendingWins: WinSummary[];
@@ -299,6 +306,10 @@ type Props = {
   claimWindowMinutes?: number;
   askName?: boolean;
   nameRequired?: boolean;
+  wheelTitle?: string;
+  wheelLogoUrl?: string | null;
+  winnersEnabled?: boolean;
+  winnersPeriod?: "DAY" | "WEEK" | "MONTH";
   geoRequired?: boolean;
   locations?: PublicLocation[];
 };
@@ -313,9 +324,14 @@ export default function GameWheelApp({
   claimWindowMinutes: initialClaimWindow = 30,
   askName: initialAskName = false,
   nameRequired: initialNameRequired = false,
+  wheelTitle: initialTitle,
+  wheelLogoUrl: initialLogoUrl = null,
+  winnersEnabled: initialWinnersEnabled = false,
+  winnersPeriod: initialWinnersPeriod = "DAY",
   geoRequired = false,
   locations = [],
 }: Props) {
+  const { t } = useLocale();
   const [phone, setPhone] = useState("");
   const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
@@ -336,7 +352,8 @@ export default function GameWheelApp({
   const [showConfetti, setShowConfetti] = useState(false);
   const [showWinModal, setShowWinModal] = useState(false);
   const [showEmptyModal, setShowEmptyModal] = useState(false);
-  const [tab, setTab] = useState<"wheel" | "prizes">("wheel");
+  const [tab, setTab] = useState<"wheel" | "prizes" | "winners">("wheel");
+  const [guestWinners, setGuestWinners] = useState(false);
   const [geo, setGeo] = useState<ClientGeoState>(
     geoRequired ? { status: "loading", fix: null } : { status: "idle" },
   );
@@ -359,6 +376,20 @@ export default function GameWheelApp({
   const nameRequired = Boolean(
     session?.nameRequired ?? initialNameRequired,
   );
+  const displayTitle =
+    (session?.wheelTitle || initialTitle || campaignName).trim() || campaignName;
+  const logoUrl = session?.wheelLogoUrl ?? initialLogoUrl;
+  const winnersEnabled = Boolean(
+    session?.winnersEnabled ?? initialWinnersEnabled,
+  );
+  const winnersPeriod =
+    session?.winnersPeriod ?? initialWinnersPeriod ?? "DAY";
+  const winnersPeriodLabel =
+    winnersPeriod === "WEEK"
+      ? t("periodWeek")
+      : winnersPeriod === "MONTH"
+        ? t("periodMonth")
+        : t("periodDay");
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
@@ -688,6 +719,7 @@ export default function GameWheelApp({
       const pendingWins = normalizeWins(sess.pendingWins);
       const claimedWins = normalizeWins(sess.claimedWins);
       const cancelledWins = normalizeWins(sess.cancelledWins);
+      setGuestWinners(false);
       setSession({
         ...sess,
         wins,
@@ -877,9 +909,7 @@ export default function GameWheelApp({
       setError("Bu hədiyyə artıq təsdiqlənir…");
       return;
     }
-    // Spin bitişinde busy kısa süre true kalabilir — PIN modalını engelleme
     if (busy) setBusy(false);
-    // ASLA window.confirm kullanma — her zaman kassir PIN modalı
     setShowWinModal(false);
     setShowEmptyModal(false);
     setShowConfetti(false);
@@ -887,6 +917,11 @@ export default function GameWheelApp({
     setError(null);
     setClaimPinError(null);
     setClaimPin("");
+    // Kassir PIN yoxdursa soruşmadan təslim et
+    if (!requireClaimPin) {
+      void submitClaim(w.spinId, "");
+      return;
+    }
     setClaimPrompt({ spinId: w.spinId, prizeName: w.prizeName });
   }
 
@@ -902,7 +937,7 @@ export default function GameWheelApp({
     const pinToSend = String(pinOverride ?? claimPin ?? "")
       .replace(/\D/g, "")
       .slice(0, 5);
-    if (pinToSend.length !== 5) {
+    if (requireClaimPin && pinToSend.length !== 5) {
       setClaimPinError("5 rəqəmli kassir şifrəsini daxil edin.");
       return;
     }
@@ -922,7 +957,7 @@ export default function GameWheelApp({
           phone: session.phone,
           spinId,
           deviceId: deviceId || getOrCreateDeviceId(),
-          pin: pinToSend || undefined,
+          pin: requireClaimPin ? pinToSend || undefined : undefined,
         }),
       });
       const data = await res.json();
@@ -1132,13 +1167,28 @@ export default function GameWheelApp({
       ) : null}
 
       <div className="relative z-10 mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(0.85rem,env(safe-area-inset-top))]">
-        <header className="mb-3 text-center">
+        <header className="mb-3 flex flex-col items-center text-center">
+          <div className="mb-2 flex w-full justify-end">
+            <LanguageSwitcher
+              compact
+              className="rounded-full bg-white/55 px-1 py-0.5 shadow-sm ring-1 ring-[#E8C547]/40 backdrop-blur"
+            />
+          </div>
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt=""
+              className="mb-2 h-14 w-14 rounded-2xl object-cover shadow-lg ring-2 ring-white/70"
+            />
+          ) : null}
           <h1
-            className="text-[1.75rem] leading-tight tracking-tight text-[#5C3200] drop-shadow-[0_1px_0_rgba(255,255,255,.6)]"
+            className="bg-gradient-to-b from-[#7A4A00] to-[#5C3200] bg-clip-text text-[1.75rem] leading-tight tracking-tight text-transparent drop-shadow-[0_1px_0_rgba(255,255,255,.55)]"
             style={{ fontFamily: "var(--display)" }}
           >
-            {campaignName}
+            {displayTitle}
           </h1>
+          <div className="mt-1.5 h-[2px] w-16 rounded-full bg-gradient-to-r from-transparent via-[#F0A500] to-transparent" />
         </header>
 
         {pendingPrimary && !showWinModal ? (
@@ -1172,7 +1222,25 @@ export default function GameWheelApp({
         ) : null}
 
         <main className="flex flex-1 flex-col rounded-[1.85rem] bg-white/80 p-4 shadow-[0_20px_50px_rgba(90,50,0,.18),inset_0_1px_0_rgba(255,255,255,.8)] ring-1 ring-[#FFD54F]/55 backdrop-blur-[1px]">
-          {!session ? (
+          {!session && guestWinners && winnersEnabled ? (
+            <div className="flex flex-1 flex-col">
+              <button
+                type="button"
+                onClick={() => {
+                  playClick();
+                  setGuestWinners(false);
+                }}
+                className="mb-3 self-start rounded-full bg-[#FFF1D6] px-3 py-1.5 text-xs font-bold text-[#5C3200]"
+              >
+                {t("backLogin")}
+              </button>
+              <WinnersBoard
+                slug={slug}
+                enabled={winnersEnabled}
+                periodLabel={winnersPeriodLabel}
+              />
+            </div>
+          ) : !session ? (
             <form
               onSubmit={startSession}
               className="flex flex-1 flex-col justify-center space-y-3.5 py-2"
@@ -1377,12 +1445,28 @@ export default function GameWheelApp({
                 disabled={busy || geoBlocked}
                 className="w-full rounded-2xl bg-gradient-to-b from-[#FFD54F] to-[#F0A500] px-4 py-3.5 text-base font-black text-[#5C3200] shadow-md disabled:opacity-60"
               >
-                {busy ? "…" : geoBlocked ? "Marketə gəlin" : "Başla"}
+                {busy ? "…" : geoBlocked ? t("comeToStore") : t("start")}
               </button>
+              {winnersEnabled ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClick();
+                    setGuestWinners(true);
+                  }}
+                  className="w-full rounded-2xl bg-white/80 px-4 py-2.5 text-sm font-bold text-[#5C3200] ring-1 ring-[#E8C547]/50"
+                >
+                  {t("winnersList")}
+                </button>
+              ) : null}
             </form>
           ) : (
             <>
-              <div className="mb-3 grid grid-cols-2 gap-2 rounded-2xl bg-[#FFF1D6]/80 p-1">
+              <div
+                className={`mb-3 grid gap-1.5 rounded-2xl bg-[#FFF1D6]/80 p-1 ${
+                  winnersEnabled ? "grid-cols-3" : "grid-cols-2"
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -1396,7 +1480,7 @@ export default function GameWheelApp({
                       : "text-[#5C3200]/55"
                   }`}
                 >
-                  Çarx
+                  {t("tabWheel")}
                 </button>
                 <button
                   type="button"
@@ -1407,15 +1491,28 @@ export default function GameWheelApp({
                       : "text-[#5C3200]/55"
                   }`}
                 >
-                  Hədiyyələr
+                  {t("tabPrizes")}
                   {session.pendingWins.length > 0
                     ? ` · ${session.pendingWins.length}`
                     : ""}
                 </button>
+                {winnersEnabled ? (
+                  <button
+                    type="button"
+                    onClick={() => setTab("winners")}
+                    className={`rounded-xl py-2.5 text-sm font-bold transition ${
+                      tab === "winners"
+                        ? "bg-white text-[#5C3200] shadow-sm"
+                        : "text-[#5C3200]/55"
+                    }`}
+                  >
+                    {t("tabWinners")}
+                  </button>
+                ) : null}
               </div>
               {tab === "prizes" ? (
                 <p className="mb-2 text-center text-[10px] font-semibold uppercase tracking-wide text-[#5C3200]/35">
-                  Kassir PIN · filial · tarix
+                  {requireClaimPin ? t("prizesMetaPin") : t("prizesMeta")}
                 </p>
               ) : null}
 
@@ -1497,7 +1594,7 @@ export default function GameWheelApp({
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block text-xs font-bold uppercase tracking-wider text-[#C4890A]">
-                          Qazandınız
+                          {t("youWon")}
                         </span>
                         <span className="block truncate text-sm font-black text-[#5C3200]">
                           {result.prizeName}
@@ -1513,20 +1610,26 @@ export default function GameWheelApp({
                     <p className="mt-2 text-center text-sm text-red-600">{error}</p>
                   ) : null}
                 </div>
+              ) : tab === "winners" ? (
+                <WinnersBoard
+                  slug={slug}
+                  enabled={winnersEnabled}
+                  periodLabel={winnersPeriodLabel}
+                />
               ) : (
                 <div className="max-h-[62dvh] space-y-3 overflow-y-auto">
                   {session.pendingWins.length === 0 &&
                   claimedWins.length === 0 &&
                   cancelledWins.length === 0 ? (
                     <p className="py-6 text-center text-sm text-[#5C3200]/50">
-                      Hələ hədiyyə yoxdur
+                      {t("noPrizes")}
                     </p>
                   ) : null}
 
                   {session.pendingWins.length > 0 ? (
                     <div>
                       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-[#5C3200]/45">
-                        Gözləyən
+                        {t("pending")}
                       </p>
                       <ul className="space-y-2">
                         {session.pendingWins.map((w) => (
@@ -1569,7 +1672,7 @@ export default function GameWheelApp({
                                 }}
                                 className="shrink-0 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white disabled:opacity-60"
                               >
-                                Aldım
+                                {t("claimBtn")}
                               </button>
                             </div>
                           </li>
@@ -1581,7 +1684,7 @@ export default function GameWheelApp({
                   {claimedWins.length > 0 ? (
                     <div className="border-t border-[#5C3200]/10 pt-3">
                       <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-[#5C3200]/45">
-                        Alınanlar
+                        {t("claimedList")}
                       </p>
                       <ul className="space-y-1.5 text-xs text-[#5C3200]/70">
                         {claimedWins.slice(0, 8).map((w) => (
@@ -1661,25 +1764,17 @@ export default function GameWheelApp({
               className="text-lg font-black text-[#5C3200]"
               style={{ fontFamily: "var(--display)" }}
             >
-              Kassir şifrəsi
+              {t("claimTitle")}
             </h2>
             <p className="mt-1 text-sm text-[#5C3200]/70">
               <span className="font-semibold text-[#5C3200]">
                 {claimPrompt.prizeName}
               </span>{" "}
-              kassada təslim — market şifrəsindən fərqli olan kassir şifrəsini
-              yazın.
+              {t("claimHint")}
             </p>
-            {!requireClaimPin ? (
-              <p className="mt-2 rounded-xl bg-amber-100/80 px-3 py-2 text-[11px] font-medium text-amber-900">
-                Admin paneldə çarx ayarlarından ayrı 5 rəqəmli{" "}
-                <strong>kassir şifrəsi</strong> təyin edin; əks halda təslim
-                alınmayacaq.
-              </p>
-            ) : null}
             <label className="mt-4 block text-sm">
               <span className="mb-1.5 block font-semibold text-[#5C3200]/75">
-                Kassir şifrəsi *
+                {t("claimPin")}
               </span>
               <input
                 type="password"
@@ -1708,14 +1803,14 @@ export default function GameWheelApp({
                 onClick={closeClaimPrompt}
                 className="rounded-2xl bg-white px-3 py-3 text-sm font-bold text-[#5C3200]/70 ring-1 ring-[#5C3200]/15 disabled:opacity-60"
               >
-                Ləğv et
+                {t("cancel")}
               </button>
               <button
                 type="submit"
                 disabled={busy || claimPin.replace(/\D/g, "").length !== 5}
                 className="rounded-2xl bg-emerald-600 px-3 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
-                {busy ? "…" : "Təsdiq · Aldım"}
+                {busy ? "…" : t("confirm")}
               </button>
             </div>
           </form>

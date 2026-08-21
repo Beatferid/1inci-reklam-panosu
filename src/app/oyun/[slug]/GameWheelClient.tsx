@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import GameWheelApp, { type WheelSlice } from "@/components/game/GameWheelApp";
+import { LocaleProvider } from "@/components/i18n/LocaleProvider";
+import { WHEEL_LOCALE_KEY, normalizeLocale, type Locale } from "@/lib/i18n/locales";
 import type { PublicLocation } from "@/lib/client-geo";
 
 type Meta = {
@@ -15,6 +17,11 @@ type Meta = {
   claimWindowMinutes?: number;
   wheelAskName?: boolean;
   wheelNameRequired?: boolean;
+  wheelTitle?: string;
+  wheelLogoUrl?: string | null;
+  wheelWinnersEnabled?: boolean;
+  wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
+  wheelDefaultLocale?: Locale;
   wheelSlices: WheelSlice[];
   geoRequired?: boolean;
   locations?: PublicLocation[];
@@ -39,8 +46,6 @@ export default function GameWheelClient({ slug }: { slug: string }) {
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok) {
-          // Yalnızca ilk yüklemede hata ekranı göster — arka plandaki
-          // yenilemede geçici bir hata tüm oyunu kilitlemesin.
           if (firstLoad) {
             const msg = String(data.error || "");
             if (res.status === 404 && /tapılmadı|tapilmadi/i.test(msg)) {
@@ -55,14 +60,12 @@ export default function GameWheelClient({ slug }: { slug: string }) {
         }
         setMeta((prev) => {
           const next = data as Meta;
-          // Referans değişmeden gereksiz render/animasyon kesintisi olmasın
           if (prev && JSON.stringify(prev) === JSON.stringify(next)) {
             return prev;
           }
           return next;
         });
         setError(null);
-        // QR açılış: ziyaret başına 1 (admin test sayılmasın)
         if (firstLoad && !fromAdmin && typeof sessionStorage !== "undefined") {
           const key = `ar-scan:${slug}`;
           if (!sessionStorage.getItem(key)) {
@@ -75,47 +78,29 @@ export default function GameWheelClient({ slug }: { slug: string }) {
           }
         }
       } catch {
-        if (!cancelled && firstLoad) {
-          setError(
-            "Bağlantı xətası / server tapılmadı. tunnel.bat açıqdır? QR ünvanını yeniləyin.",
-          );
-        }
+        if (firstLoad && !cancelled) setError("Bağlantı xətası");
       } finally {
         firstLoad = false;
       }
     }
 
     void loadMeta();
-    // Admin ayarları (konum kilidi, dilimler, PIN vs.) değiştirdiğinde açık
-    // olan oyun sekmesi elle yenilemeden güncel duruma otomatik geçsin.
-    const intervalId = window.setInterval(() => {
+    const id = window.setInterval(() => {
       if (document.visibilityState === "visible") void loadMeta();
-    }, 15000);
-    function onVisible() {
-      if (document.visibilityState === "visible") void loadMeta();
-    }
-    document.addEventListener("visibilitychange", onVisible);
-
+    }, 12000);
     return () => {
       cancelled = true;
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(id);
     };
   }, [slug, fromAdmin]);
 
   if (error) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-4 bg-[#fff4e0] px-6 text-center">
-        <div>
-          <p className="text-lg font-bold text-[#5c3b00]">Oyun açıla bilmədi</p>
-          <p className="mt-2 text-sm text-[#5c3b00]/70">{error}</p>
-        </div>
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 bg-[#fff4e0] px-6 text-center">
+        <p className="text-sm font-medium text-[#5c3b00]">{error}</p>
         {fromAdmin ? (
-          <Link
-            href="/admin"
-            className="rounded-xl bg-[#5C3200] px-4 py-2.5 text-sm font-bold text-[#FFF6D6]"
-          >
-            ← Admin panel
+          <Link href="/admin" className="text-sm font-bold text-[#8B5A00] underline">
+            Adminə qayıt
           </Link>
         ) : null}
       </div>
@@ -130,8 +115,14 @@ export default function GameWheelClient({ slug }: { slug: string }) {
     );
   }
 
+  const defaultLocale = normalizeLocale(meta.wheelDefaultLocale, "az");
+
   return (
-    <>
+    <LocaleProvider
+      storageKey={`${WHEEL_LOCALE_KEY}:${slug}`}
+      mode="wheel"
+      defaultLocale={defaultLocale}
+    >
       {fromAdmin ? (
         <div className="fixed left-3 top-3 z-[90]">
           <Link
@@ -152,9 +143,13 @@ export default function GameWheelClient({ slug }: { slug: string }) {
         claimWindowMinutes={meta.claimWindowMinutes}
         askName={meta.wheelAskName}
         nameRequired={meta.wheelNameRequired}
+        wheelTitle={meta.wheelTitle}
+        wheelLogoUrl={meta.wheelLogoUrl}
+        winnersEnabled={Boolean(meta.wheelWinnersEnabled)}
+        winnersPeriod={meta.wheelWinnersPeriod}
         geoRequired={Boolean(meta.geoRequired)}
         locations={meta.locations || []}
       />
-    </>
+    </LocaleProvider>
   );
 }

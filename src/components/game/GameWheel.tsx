@@ -110,21 +110,46 @@ export default function GameWheel({
       className="relative mx-auto select-none"
       style={{ width: size, height: size + size * 0.12 }}
     >
+      <style>{`
+        @keyframes gw-rim-pulse {
+          0%, 100% { filter: drop-shadow(0 0 10px rgba(255,200,60,.45)); }
+          50% { filter: drop-shadow(0 0 22px rgba(255,215,100,.85)); }
+        }
+        @keyframes gw-shimmer {
+          0% { transform: translateX(-120%) rotate(18deg); }
+          100% { transform: translateX(220%) rotate(18deg); }
+        }
+        @keyframes gw-bulb {
+          0%, 100% { opacity: .55; box-shadow: 0 0 4px rgba(255,240,180,.5); }
+          50% { opacity: 1; box-shadow: 0 0 10px rgba(255,230,120,.95); }
+        }
+        @keyframes gw-bulb-idle {
+          0%, 100% { opacity: .7; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+        }
+      `}</style>
       {/* Tek net ok — uç dilimin ortasına bakar (12 yönü) */}
       <div
         className="pointer-events-none absolute left-1/2 z-50 -translate-x-1/2"
-        style={{ top: -2 }}
+        style={{ top: -2, animation: spinning ? undefined : "gw-rim-pulse 2.4s ease-in-out infinite" }}
         aria-hidden
       >
         <svg width="36" height="44" viewBox="0 0 36 44" fill="none">
           <path
             d="M18 44 L2 8 Q18 14 34 8 Z"
-            fill="#FFC107"
+            fill="url(#gwGold)"
             stroke="#FFFDE7"
             strokeWidth="2.5"
             strokeLinejoin="round"
           />
           <path d="M18 10 L18 38" stroke="#FFF8DC" strokeWidth="2.5" strokeLinecap="round" />
+          <defs>
+            <linearGradient id="gwGold" x1="18" y1="8" x2="18" y2="44">
+              <stop stopColor="#FFE082" />
+              <stop offset="0.5" stopColor="#FFC107" />
+              <stop offset="1" stopColor="#B8860B" />
+            </linearGradient>
+          </defs>
         </svg>
       </div>
 
@@ -135,11 +160,12 @@ export default function GameWheel({
           height: size,
           padding: rim,
           background:
-            "radial-gradient(circle at 30% 24%, #FFFDF2 0%, #FFE9A3 24%, #FFC94C 54%, #B46B00 100%)",
-          border: "1px solid rgba(255,255,255,.7)",
+            "radial-gradient(circle at 28% 20%, #FFFDF8 0%, #FFE9A8 18%, #FFD054 48%, #C98900 78%, #7A4A00 100%)",
+          border: "1px solid rgba(255,255,255,.75)",
           boxShadow: spinning
-            ? "0 0 30px rgba(255,200,60,.7), 0 16px 36px rgba(70,38,0,.42), inset 0 2px 10px rgba(255,255,255,.65)"
-            : "0 0 20px rgba(255,200,60,.45), 0 14px 32px rgba(70,38,0,.35), inset 0 2px 10px rgba(255,255,255,.58)",
+            ? "0 0 36px rgba(255,200,60,.8), 0 18px 40px rgba(70,38,0,.45), inset 0 2px 12px rgba(255,255,255,.7)"
+            : "0 0 24px rgba(255,200,60,.55), 0 16px 36px rgba(70,38,0,.38), inset 0 2px 12px rgba(255,255,255,.62)",
+          animation: spinning ? undefined : "gw-rim-pulse 3s ease-in-out infinite",
         }}
       >
         <div
@@ -160,6 +186,21 @@ export default function GameWheel({
               boxShadow: "inset 0 0 26px rgba(0,0,0,.18)",
             }}
           >
+            <div
+              className="pointer-events-none absolute inset-0 overflow-hidden rounded-full"
+              aria-hidden
+            >
+              <div
+                className="absolute inset-y-[-20%] left-0 w-[35%] opacity-40"
+                style={{
+                  background:
+                    "linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)",
+                  animation: spinning
+                    ? undefined
+                    : "gw-shimmer 3.8s ease-in-out infinite",
+                }}
+              />
+            </div>
             <div
               className="pointer-events-none absolute inset-0 rounded-full"
               style={{

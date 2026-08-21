@@ -68,6 +68,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
     requireClaimPin: display.requireClaimPin,
     wheelAskName: display.wheelAskName,
     wheelNameRequired: display.wheelNameRequired,
+    wheelTitle: display.wheelTitle || campaign.name,
+    wheelLogoUrl: display.wheelLogoUrl,
+    wheelWinnersEnabled: display.wheelWinnersEnabled,
+    wheelWinnersPeriod: display.wheelWinnersPeriod,
+    wheelDefaultLocale: display.wheelDefaultLocale,
     ...publicGeoInfo(geo),
     wheelSlices: prizesToSlices(campaign.prizes, {
       equalSlices: display.wheelEqualSlices,
