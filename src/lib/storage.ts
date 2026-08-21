@@ -3,8 +3,18 @@ import path from "path";
 import { nanoid } from "nanoid";
 import { del, put } from "@vercel/blob";
 import { publicMediaUrl } from "@/lib/media-url";
+import {
+  MAX_AUDIO_UPLOAD_BYTES,
+  MAX_UPLOAD_BYTES,
+  UPLOAD_TRANSPORT_MAX_BYTES,
+} from "@/lib/upload-limits";
 
 export { publicMediaUrl };
+export {
+  MAX_AUDIO_UPLOAD_BYTES,
+  MAX_UPLOAD_BYTES,
+  UPLOAD_TRANSPORT_MAX_BYTES,
+};
 
 const ROOT = path.join(process.cwd(), "storage");
 const UPLOADS = path.join(ROOT, "uploads");
@@ -132,9 +142,6 @@ export async function deleteStorageFile(relative: string | null | undefined) {
     // ignore missing / invalid
   }
 }
-
-export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
-export const MAX_AUDIO_UPLOAD_BYTES = 15 * 1024 * 1024;
 
 const ALLOWED_IMAGE_MIME = new Set([
   "image/jpeg",

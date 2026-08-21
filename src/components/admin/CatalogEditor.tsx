@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import AdminBackLink from "@/components/admin/AdminBackLink";
 import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
+import { prepareCatalogImage } from "@/lib/client-image-compress";
+import { formatMb, MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 export type CatalogPageDto = {
   id: string;
@@ -145,8 +147,14 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
     setLogoBusy(true);
     setError(null);
     try {
+      const prepared = await prepareCatalogImage(file);
+      if (!prepared.ok) {
+        if ("cancelled" in prepared && prepared.cancelled) return;
+        setError("error" in prepared ? prepared.error : "Logo hazırlanamadı");
+        return;
+      }
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", prepared.file);
       const res = await fetch(`/api/admin/catalogs/${catalog.id}/logo`, {
         method: "POST",
         body: form,
@@ -157,6 +165,11 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
         return;
       }
       setCatalog(json);
+      if (prepared.compressed) {
+        setMessage(
+          `Logo sıkıştırıldı (${formatMb(prepared.originalBytes)} → ${formatMb(prepared.file.size)} MB).`,
+        );
+      }
     } catch {
       setError("Bağlantı hatası — logo yüklenemedi.");
     } finally {
@@ -183,8 +196,14 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
     setCoverBusy(true);
     setError(null);
     try {
+      const prepared = await prepareCatalogImage(file);
+      if (!prepared.ok) {
+        if ("cancelled" in prepared && prepared.cancelled) return;
+        setError("error" in prepared ? prepared.error : "Kapak hazırlanamadı");
+        return;
+      }
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", prepared.file);
       const res = await fetch(`/api/admin/catalogs/${catalog.id}/cover`, {
         method: "POST",
         body: form,
@@ -195,6 +214,11 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
         return;
       }
       setCatalog(json);
+      if (prepared.compressed) {
+        setMessage(
+          `Kapak sıkıştırıldı (${formatMb(prepared.originalBytes)} → ${formatMb(prepared.file.size)} MB).`,
+        );
+      }
     } catch {
       setError("Bağlantı hatası — kapak yüklenemedi.");
     } finally {
@@ -259,30 +283,44 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
     if (!files || files.length === 0) return;
     setUploading(true);
     setError(null);
+    setMessage(null);
     try {
       const list = Array.from(files);
-      const maxBytes =
-        typeof window !== "undefined" &&
-        window.location.hostname.includes("vercel.app")
-          ? 4 * 1024 * 1024
-          : 10 * 1024 * 1024;
       for (let i = 0; i < list.length; i++) {
-        if (list[i].size > maxBytes) {
-          setError(
-            `${list[i].name} çok büyük. Vercel’de görsel en fazla 4 MB olsun (küçültüp tekrar dene).`,
-          );
+        const original = list[i];
+        setUploadProgress(`${i + 1} / ${list.length} hazırlanıyor…`);
+        const prepared = await prepareCatalogImage(original, {
+          softMaxBytes: MAX_UPLOAD_BYTES,
+          onStatus: (msg) =>
+            setUploadProgress(`${i + 1} / ${list.length} · ${msg}`),
+        });
+        if (!prepared.ok) {
+          if ("cancelled" in prepared && prepared.cancelled) {
+            setError(`${original.name} atlandı (sıkıştırma iptal).`);
+          } else {
+            setError(
+              "error" in prepared
+                ? prepared.error
+                : `${original.name} yüklenemedi`,
+            );
+          }
           break;
         }
-        setUploadProgress(`${i + 1} / ${list.length} yükleniyor…`);
+        setUploadProgress(
+          `${i + 1} / ${list.length} yükleniyor…` +
+            (prepared.compressed
+              ? ` (${formatMb(prepared.originalBytes)} → ${formatMb(prepared.file.size)} MB)`
+              : ""),
+        );
         const form = new FormData();
-        form.append("file", list[i]);
+        form.append("file", prepared.file);
         const res = await fetch(`/api/admin/catalogs/${catalog.id}/pages`, {
           method: "POST",
           body: form,
         });
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
-          setError(json.error || `${list[i].name} yüklenemedi`);
+          setError(json.error || `${original.name} yüklenemedi`);
           break;
         }
       }
@@ -344,8 +382,14 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
     setBusy(true);
     setError(null);
     try {
+      const prepared = await prepareCatalogImage(file);
+      if (!prepared.ok) {
+        if ("cancelled" in prepared && prepared.cancelled) return;
+        setError("error" in prepared ? prepared.error : "Görsel hazırlanamadı");
+        return;
+      }
       const form = new FormData();
-      form.append("file", file);
+      form.append("file", prepared.file);
       const res = await fetch(
         `/api/admin/catalogs/${catalog.id}/pages/${pageId}`,
         { method: "PATCH", body: form },
@@ -356,6 +400,11 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
         return;
       }
       await refreshCatalog();
+      if (prepared.compressed) {
+        setMessage(
+          `Sayfa görseli sıkıştırıldı (${formatMb(prepared.originalBytes)} → ${formatMb(prepared.file.size)} MB).`,
+        );
+      }
     } finally {
       setBusy(false);
     }
@@ -750,7 +799,8 @@ export default function CatalogEditor({ initial }: { initial: CatalogDto }) {
                 </h2>
                 <p className="text-sm text-muted">
                   Her görsel bir dergi sayfası olur. Sırasını yukarı/aşağı ile
-                  değiştirebilirsiniz.
+                  değiştirebilirsiniz. Limit {formatMb(MAX_UPLOAD_BYTES, 0)} MB —
+                  daha büyük dosyada uyarı çıkar, isterseniz sıkıştırıp yükler.
                 </p>
               </div>
               <label className="rounded-md bg-accent px-4 py-2.5 text-sm font-medium text-white">
