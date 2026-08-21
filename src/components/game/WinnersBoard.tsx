@@ -10,6 +10,8 @@ export type PublicWinner = {
   prizeImageUrl: string | null;
   spunAtLabel: string;
   claimed: boolean;
+  won?: boolean;
+  isEmpty?: boolean;
 };
 
 type Props = {
@@ -105,46 +107,71 @@ export default function WinnersBoard({
         </div>
       ) : (
         <ul className="max-h-[55dvh] space-y-2 overflow-y-auto pr-0.5">
-          {winners.map((w, i) => (
-            <li
-              key={w.id}
-              className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-[#FFFDF6] to-[#FFF1D0] px-3 py-2.5 shadow-sm ring-1 ring-[#E8C547]/35"
-            >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-b from-[#FFE082] to-[#F0A500] text-xs font-black text-[#5C3200]">
-                {i + 1}
-              </span>
-              {w.prizeImageUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={w.prizeImageUrl}
-                  alt=""
-                  className="h-11 w-11 rounded-xl object-cover ring-1 ring-[#E8C547]/40"
-                />
-              ) : (
-                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#FFF3C4] text-lg">
-                  ★
+          {winners.map((w, i) => {
+            const empty = Boolean(w.isEmpty) || w.won === false;
+            return (
+              <li
+                key={w.id}
+                className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 shadow-sm ring-1 ${
+                  empty
+                    ? "bg-gradient-to-r from-slate-50 to-slate-100 ring-slate-200/80"
+                    : "bg-gradient-to-r from-[#FFFDF6] to-[#FFF1D0] ring-[#E8C547]/35"
+                }`}
+              >
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+                    empty
+                      ? "bg-slate-200 text-slate-600"
+                      : "bg-gradient-to-b from-[#FFE082] to-[#F0A500] text-[#5C3200]"
+                  }`}
+                >
+                  {i + 1}
                 </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-[#5C3200]">
-                  {w.displayName}
-                </p>
-                <p className="truncate text-xs font-semibold text-[#B8860B]">
-                  {w.prizeName}
-                </p>
-                <p className="text-[10px] text-[#5C3200]/45">{w.spunAtLabel}</p>
-              </div>
-              {w.claimed ? (
-                <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                  {t("claimed")}
-                </span>
-              ) : (
-                <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
-                  {t("waiting")}
-                </span>
-              )}
-            </li>
-          ))}
+                {w.prizeImageUrl && !empty ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={w.prizeImageUrl}
+                    alt=""
+                    className="h-11 w-11 rounded-xl object-cover ring-1 ring-[#E8C547]/40"
+                  />
+                ) : (
+                  <span
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg ${
+                      empty ? "bg-slate-200 text-slate-500" : "bg-[#FFF3C4]"
+                    }`}
+                  >
+                    {empty ? "○" : "★"}
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-[#5C3200]">
+                    {w.displayName}
+                  </p>
+                  <p
+                    className={`truncate text-xs font-semibold ${
+                      empty ? "text-slate-500" : "text-[#B8860B]"
+                    }`}
+                  >
+                    {empty ? t("emptyResult") : w.prizeName}
+                  </p>
+                  <p className="text-[10px] text-[#5C3200]/45">{w.spunAtLabel}</p>
+                </div>
+                {empty ? (
+                  <span className="shrink-0 rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                    {t("resultEmpty")}
+                  </span>
+                ) : w.claimed ? (
+                  <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                    {t("claimed")}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                    {t("waiting")}
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

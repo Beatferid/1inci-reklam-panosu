@@ -1394,9 +1394,11 @@ export type PublicWinnerRow = {
   spunAt: string;
   spunAtLabel: string;
   claimed: boolean;
+  won: boolean;
+  isEmpty: boolean;
 };
 
-/** Müşteri kazananlar panosu — yalnızca ayar açıksa */
+/** Müşteri sonuç listesi — hediye + boş düşenler (ayar açıksa) */
 export async function getPublicWinners(slug: string) {
   const campaign = await prisma.campaign.findUnique({
     where: { slug },
@@ -1441,7 +1443,6 @@ export async function getPublicWinners(slug: string) {
   const spins = await prisma.wheelSpin.findMany({
     where: {
       campaignId: campaign.id,
-      won: true,
       cancelledAt: null,
       dayKey: { gte: bounds.from, lte: bounds.to },
     },
@@ -1452,14 +1453,22 @@ export async function getPublicWinners(slug: string) {
 
   const winners: PublicWinnerRow[] = spins.map((s) => {
     const name = s.player.fullName?.trim();
+    const isEmpty = Boolean(s.prize.isEmpty) || !s.won;
+    const prizeLabel = isEmpty
+      ? s.prize.name?.trim() && !/^bo[sş]/i.test(s.prize.name)
+        ? s.prize.name
+        : "Boş"
+      : s.prize.name;
     return {
       id: s.id,
       displayName: name && name.length >= 2 ? name : maskPhone(s.player.phone),
-      prizeName: s.prize.name,
-      prizeImageUrl: publicMediaUrl(s.prize.imagePath),
+      prizeName: prizeLabel,
+      prizeImageUrl: isEmpty ? null : publicMediaUrl(s.prize.imagePath),
       spunAt: s.createdAt.toISOString(),
       spunAtLabel: formatIstanbul(s.createdAt),
       claimed: Boolean(s.claimedAt),
+      won: Boolean(s.won) && !isEmpty,
+      isEmpty,
     };
   });
 
