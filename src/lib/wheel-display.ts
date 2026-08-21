@@ -25,6 +25,8 @@ export type WheelDisplaySettings = {
   wheelWinnersEnabled: boolean;
   wheelWinnersPeriod: WinnersPeriod;
   wheelDefaultLocale: Locale;
+  /** true = çevirmeden sonra QR yeniden okutulmalı */
+  wheelRequireQrRescan: boolean;
 };
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
@@ -72,6 +74,7 @@ export async function getWheelDisplaySettings(
         wheelWinnersEnabled: true,
         wheelWinnersPeriod: true,
         wheelDefaultLocale: true,
+        wheelRequireQrRescan: true,
       },
     });
     const spinPin = normalizePin(row?.spinPin);
@@ -98,6 +101,11 @@ export async function getWheelDisplaySettings(
       wheelWinnersEnabled: Boolean(row?.wheelWinnersEnabled),
       wheelWinnersPeriod: normalizeWinnersPeriod(row?.wheelWinnersPeriod),
       wheelDefaultLocale: normalizeLocale(row?.wheelDefaultLocale, "az"),
+      wheelRequireQrRescan:
+        row?.wheelRequireQrRescan === undefined ||
+        row?.wheelRequireQrRescan === null
+          ? true
+          : Boolean(row.wheelRequireQrRescan),
     };
   } catch (err) {
     if (err instanceof WheelSettingsUnavailableError) throw err;
@@ -166,6 +174,10 @@ export async function setWheelDisplaySettings(
       patch.wheelDefaultLocale !== undefined
         ? normalizeLocale(patch.wheelDefaultLocale, "az")
         : current.wheelDefaultLocale,
+    wheelRequireQrRescan:
+      patch.wheelRequireQrRescan !== undefined
+        ? Boolean(patch.wheelRequireQrRescan)
+        : current.wheelRequireQrRescan,
   };
   next.wheelLogoUrl = publicMediaUrl(next.wheelLogoPath);
   await prisma.campaign.update({
@@ -184,6 +196,7 @@ export async function setWheelDisplaySettings(
       wheelWinnersEnabled: next.wheelWinnersEnabled,
       wheelWinnersPeriod: next.wheelWinnersPeriod,
       wheelDefaultLocale: next.wheelDefaultLocale,
+      wheelRequireQrRescan: next.wheelRequireQrRescan,
     },
   });
   return next;
@@ -222,5 +235,6 @@ export function publicWheelSettings(settings: WheelDisplaySettings) {
     wheelWinnersEnabled: settings.wheelWinnersEnabled,
     wheelWinnersPeriod: settings.wheelWinnersPeriod,
     wheelDefaultLocale: settings.wheelDefaultLocale,
+    wheelRequireQrRescan: settings.wheelRequireQrRescan,
   };
 }

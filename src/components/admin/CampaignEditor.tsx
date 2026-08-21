@@ -38,6 +38,7 @@ export type CampaignDto = {
   wheelWinnersEnabled?: boolean;
   wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
   wheelDefaultLocale?: "az" | "tr" | "en" | "ru";
+  wheelRequireQrRescan?: boolean;
   geoEnabled?: boolean;
   geoLat?: number | null;
   geoLng?: number | null;
@@ -85,6 +86,7 @@ export default function CampaignEditor({
       initial.wheelDefaultLocale === "ru"
         ? initial.wheelDefaultLocale
         : "az",
+    wheelRequireQrRescan: initial.wheelRequireQrRescan !== false,
     geoEnabled: Boolean(initial.geoEnabled),
     geoLat: initial.geoLat ?? null,
     geoLng: initial.geoLng ?? null,
@@ -619,6 +621,7 @@ export default function CampaignEditor({
             ? campaign.wheelDefaultLocale
             : "az"
         }
+        wheelRequireQrRescan={campaign.wheelRequireQrRescan !== false}
         onCampaignChange={async (patch) => {
           const res = await fetch(`/api/campaigns/${campaign.id}`, {
             method: "PATCH",

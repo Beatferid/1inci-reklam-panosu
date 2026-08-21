@@ -67,6 +67,7 @@ type SessionData = {
   wheelLogoUrl?: string | null;
   winnersEnabled?: boolean;
   winnersPeriod?: "DAY" | "WEEK" | "MONTH";
+  requireQrRescan?: boolean;
   nextSpinInSeconds?: number;
   blockReason?: "daily" | "cooldown" | null;
   pendingWins: WinSummary[];
@@ -310,6 +311,7 @@ type Props = {
   wheelLogoUrl?: string | null;
   winnersEnabled?: boolean;
   winnersPeriod?: "DAY" | "WEEK" | "MONTH";
+  requireQrRescan?: boolean;
   geoRequired?: boolean;
   locations?: PublicLocation[];
 };
@@ -328,6 +330,7 @@ export default function GameWheelApp({
   wheelLogoUrl: initialLogoUrl = null,
   winnersEnabled: initialWinnersEnabled = false,
   winnersPeriod: initialWinnersPeriod = "DAY",
+  requireQrRescan: initialRequireQrRescan = true,
   geoRequired = false,
   locations = [],
 }: Props) {
@@ -384,12 +387,17 @@ export default function GameWheelApp({
   );
   const winnersPeriod =
     session?.winnersPeriod ?? initialWinnersPeriod ?? "DAY";
+  const requireQrRescan = Boolean(
+    session?.requireQrRescan ?? initialRequireQrRescan,
+  );
   const winnersPeriodLabel =
     winnersPeriod === "WEEK"
       ? t("periodWeek")
       : winnersPeriod === "MONTH"
         ? t("periodMonth")
         : t("periodDay");
+  /** Ayar kapalıysa QR kilidi uygulanmaz */
+  const qrLocked = requireQrRescan && qrSpinLocked;
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
@@ -744,7 +752,7 @@ export default function GameWheelApp({
   }
 
   async function doSpin() {
-    if (spinning || busy || !session?.canSpin || qrSpinLocked) return;
+    if (spinning || busy || !session?.canSpin || qrLocked) return;
     // await öncesi kilit — çift tıklamada paralel spin engeli
     setBusy(true);
     setError(null);
@@ -833,8 +841,10 @@ export default function GameWheelApp({
         stopTicksRef.current = null;
         setSpinning(false);
         setResult(spinPayload);
-        markSpinLocked(slug);
-        setQrSpinLocked(true);
+        if (requireQrRescan) {
+          markSpinLocked(slug);
+          setQrSpinLocked(true);
+        }
         // ses: ctx zaten jestte unlock edildi; resume çağırma
         try {
           if (spinPayload.won) playWin();
@@ -1159,6 +1169,7 @@ export default function GameWheelApp({
       {showEmptyModal && result && !result.won ? (
         <EmptyShowcase
           prizeName={result.prizeName}
+          requireQrRescan={requireQrRescan}
           onClose={() => {
             playClick();
             setShowEmptyModal(false);
@@ -1530,7 +1541,7 @@ export default function GameWheelApp({
                       disabled={
                         busy ||
                         !session.canSpin ||
-                        qrSpinLocked ||
+                        qrLocked ||
                         geoBlocked
                       }
                     />
@@ -1544,10 +1555,9 @@ export default function GameWheelApp({
                     </p>
                   ) : null}
 
-                  {qrSpinLocked && !spinning ? (
+                  {qrLocked && !spinning ? (
                     <div className="mt-2 w-full rounded-2xl bg-[#5C3200] px-3 py-3 text-center text-xs font-semibold text-[#FFF6D6]">
-                      Yenidən fırlatmaq üçün panodakı{" "}
-                      <span className="underline">QR kodu</span> yenidən oxudun
+                      {t("qrRescanMsg")}
                     </div>
                   ) : (
                     <div className="mt-2 flex items-center gap-2 rounded-full bg-[#FFF1D6] px-3.5 py-1.5 text-xs font-semibold text-[#5C3200]/80">

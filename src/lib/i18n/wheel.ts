@@ -44,6 +44,7 @@ const az: Dict = {
   geoNeeded: "Məkan lazımdır",
   geoReading: "GPS oxunur…",
   preparing: "Oyun hazırlanır…",
+  qrRescanMsg: "Yenidən fırlatmaq üçün panodakı QR kodu yenidən oxudun",
 };
 
 const tr: Dict = {
@@ -88,6 +89,7 @@ const tr: Dict = {
   geoNeeded: "Konum gerekli",
   geoReading: "GPS okunuyor…",
   preparing: "Oyun hazırlanıyor…",
+  qrRescanMsg: "Yeniden çevirmek için panodaki QR kodu yeniden okutun",
 };
 
 const en: Dict = {
@@ -132,6 +134,7 @@ const en: Dict = {
   geoNeeded: "Location required",
   geoReading: "Reading GPS…",
   preparing: "Preparing game…",
+  qrRescanMsg: "To spin again, scan the board QR code again",
 };
 
 const ru: Dict = {
@@ -176,6 +179,7 @@ const ru: Dict = {
   geoNeeded: "Нужна геолокация",
   geoReading: "Чтение GPS…",
   preparing: "Игра готовится…",
+  qrRescanMsg: "Чтобы крутить снова, снова отсканируйте QR на стенде",
 };
 
 const TABLES: Record<Locale, Dict> = { az, tr, en, ru };

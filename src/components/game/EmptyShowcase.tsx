@@ -1,12 +1,20 @@
 "use client";
 
+import { useLocale } from "@/components/i18n/LocaleProvider";
+
 type Props = {
   prizeName?: string | null;
+  requireQrRescan?: boolean;
   onClose: () => void;
 };
 
 /** Boş dilim — yumuşak, animasyonlu bildirim */
-export default function EmptyShowcase({ prizeName, onClose }: Props) {
+export default function EmptyShowcase({
+  prizeName,
+  requireQrRescan = true,
+  onClose,
+}: Props) {
+  const { t } = useLocale();
   const label =
     prizeName && prizeName.trim() && !/^bo[sş]/i.test(prizeName)
       ? prizeName
@@ -42,57 +50,22 @@ export default function EmptyShowcase({ prizeName, onClose }: Props) {
         ))}
       </div>
 
-      <div className="gw-empty-card relative z-10 mx-3 mb-[max(1rem,env(safe-area-inset-bottom))] w-full max-w-sm overflow-hidden rounded-[1.85rem] p-[2px] shadow-[0_24px_60px_rgba(20,30,50,.45)]">
-        <div
-          className="absolute inset-0 rounded-[1.85rem]"
-          style={{
-            background:
-              "linear-gradient(135deg, #B8C5D6, #8FA3B8, #D4DCE6, #9BB0C4)",
-          }}
-          aria-hidden
-        />
-        <div className="relative rounded-[1.7rem] bg-gradient-to-b from-[#F7FAFD] via-[#EEF3F8] to-[#DDE6F0] px-4 pb-4 pt-6">
-          <div className="relative mx-auto flex h-36 w-36 items-center justify-center">
-            <div
-              className="gw-empty-ring absolute inset-0 rounded-full border-2 border-dashed border-slate-400/50"
-              aria-hidden
-            />
-            <div className="gw-empty-bubble relative flex h-28 w-28 flex-col items-center justify-center rounded-full bg-gradient-to-b from-white to-slate-200 shadow-[0_10px_28px_rgba(60,80,110,.22)] ring-4 ring-white/80">
-              <svg
-                className="gw-empty-face h-14 w-14 text-slate-400"
-                viewBox="0 0 64 64"
-                fill="none"
-                aria-hidden
-              >
-                <rect
-                  x="12"
-                  y="22"
-                  width="40"
-                  height="30"
-                  rx="6"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeDasharray="5 4"
-                />
-                <path
-                  d="M12 30h40"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M32 22v30"
-                  stroke="currentColor"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  opacity="0.5"
-                />
-                <circle cx="32" cy="14" r="5" stroke="currentColor" strokeWidth="3" />
-              </svg>
-              <span className="mt-0.5 text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
-                boş
-              </span>
-            </div>
+      <div className="relative z-10 w-full max-w-sm px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-6">
+        <div className="gw-empty-card rounded-[1.75rem] bg-gradient-to-b from-slate-50 to-slate-100 p-5 shadow-2xl ring-1 ring-slate-200">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-slate-200/80 text-3xl text-slate-500 shadow-inner">
+            ○
+          </div>
+
+          <div className="mt-3 flex justify-center gap-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span
+                key={i}
+                className="h-1.5 w-1.5 rounded-full bg-slate-300"
+                style={{
+                  animation: `gw-empty-dot 1.2s ease-in-out ${i * 0.12}s infinite`,
+                }}
+              />
+            ))}
           </div>
 
           <p className="mt-4 text-center text-[11px] font-black uppercase tracking-[0.28em] text-slate-500">
@@ -105,7 +78,9 @@ export default function EmptyShowcase({ prizeName, onClose }: Props) {
             {label}
           </h2>
           <p className="mx-auto mt-2 max-w-[16rem] text-center text-sm font-semibold leading-snug text-slate-500">
-            Bu turda hədiyyə çıxmadı. Yenidən şans üçün panodakı QR kodu oxudun.
+            {requireQrRescan
+              ? t("qrRescanMsg")
+              : "Bu turda hədiyyə çıxmadı. Haqqınız varsa yenidən çevirə bilərsiniz."}
           </p>
 
           <button
@@ -122,36 +97,17 @@ export default function EmptyShowcase({ prizeName, onClose }: Props) {
         .gw-empty-card {
           animation: gw-empty-pop 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
-        .gw-empty-bubble {
-          animation: gw-empty-bob 2.4s ease-in-out infinite;
-        }
-        .gw-empty-ring {
-          animation: gw-empty-spin 10s linear infinite;
-        }
-        .gw-empty-face {
-          animation: gw-empty-soft 2.8s ease-in-out infinite;
-        }
         @keyframes gw-empty-pop {
-          0% { transform: translateY(32px) scale(0.88); opacity: 0; }
-          60% { transform: translateY(-4px) scale(1.02); opacity: 1; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
-        }
-        @keyframes gw-empty-bob {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
-        }
-        @keyframes gw-empty-spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes gw-empty-soft {
-          0%, 100% { opacity: 0.75; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.06); }
+          from { opacity: 0; transform: translateY(24px) scale(0.96); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes gw-empty-float {
-          0% { transform: translateY(0) scale(0.7); opacity: 0; }
-          20% { opacity: 0.7; }
-          80% { opacity: 0.35; }
-          100% { transform: translateY(-48px) scale(1.1); opacity: 0; }
+          0%, 100% { transform: translateY(0); opacity: 0.45; }
+          50% { transform: translateY(-10px); opacity: 0.85; }
+        }
+        @keyframes gw-empty-dot {
+          0%, 100% { opacity: 0.35; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.35); }
         }
       `}</style>
     </div>

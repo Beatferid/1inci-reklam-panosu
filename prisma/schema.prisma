@@ -65,6 +65,8 @@ model Campaign {
   wheelWinnersPeriod   String         @default("DAY")
   /** az | tr | en | ru — müşteri çark varsayılan dili */
   wheelDefaultLocale   String         @default("az")
+  /** Çevirmeden sonra panodaki QR’ı yeniden okutmayı zorunlu tut */
+  wheelRequireQrRescan Boolean        @default(true)
   geoEnabled           Boolean        @default(false)
   geoLat               Float?
   geoLng               Float?

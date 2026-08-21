@@ -42,6 +42,10 @@ const az: Dict = {
   defaultLocale: "Çarxın standart dili",
   defaultLocaleHint:
     "Müştəri səhifəsində dil seçici görünür; standart dil buradan təyin olunur.",
+  qrRescanRequire:
+    "Çevirmədən sonra panodakı QR-ı yenidən oxut (aktiv)",
+  qrRescanHint:
+    "Açıq: bir çevirmədən sonra yenidən fırlatmaq üçün panodakı QR oxudulmalıdır. Bağlı: günlük haqq / gözləmə yetərsə eyni səhifədən yenidən çevirilə bilər.",
 };
 
 const tr: Dict = {
@@ -84,6 +88,10 @@ const tr: Dict = {
   defaultLocale: "Çarkın varsayılan dili",
   defaultLocaleHint:
     "Müşteri sayfasında dil seçici görünür; varsayılan dil buradan ayarlanır.",
+  qrRescanRequire:
+    "Çevirmeden sonra panodaki QR’ı yeniden okut (aktif)",
+  qrRescanHint:
+    "Açık: bir çevirmeden sonra yeniden çevirmek için panodaki QR okutulmalı. Kapalı: günlük hak / bekleme varsa aynı sayfadan tekrar çevrilebilir.",
 };
 
 const en: Dict = {
@@ -126,6 +134,9 @@ const en: Dict = {
   defaultLocale: "Default wheel language",
   defaultLocaleHint:
     "Customers can change language on the game page; this sets the default.",
+  qrRescanRequire: "Require board QR re-scan after each spin",
+  qrRescanHint:
+    "On: after one spin, customer must scan the board QR again. Off: can spin again on the same page if daily quota / cooldown allow.",
 };
 
 const ru: Dict = {
@@ -168,6 +179,9 @@ const ru: Dict = {
   defaultLocale: "Язык колеса по умолчанию",
   defaultLocaleHint:
     "На странице игры можно сменить язык; здесь задаётся язык по умолчанию.",
+  qrRescanRequire: "После крутки снова сканировать QR на стенде",
+  qrRescanHint:
+    "Вкл.: после одного вращения нужно снова отсканировать QR. Выкл.: можно крутить снова на той же странице при наличии лимита / паузы.",
 };
 
 const TABLES: Record<Locale, Dict> = { az, tr, en, ru };

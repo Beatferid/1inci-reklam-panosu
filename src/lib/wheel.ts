@@ -841,6 +841,7 @@ export async function getWheelSession(
       wheelLogoUrl: pub.wheelLogoUrl,
       winnersEnabled: pub.wheelWinnersEnabled,
       winnersPeriod: pub.wheelWinnersPeriod,
+      requireQrRescan: pub.wheelRequireQrRescan,
       locationId: geoCheck.match?.location.id ?? null,
       locationName: geoCheck.match
         ? locationLabel(geoCheck.match.location)

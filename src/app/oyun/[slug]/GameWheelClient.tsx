@@ -22,6 +22,7 @@ type Meta = {
   wheelWinnersEnabled?: boolean;
   wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
   wheelDefaultLocale?: Locale;
+  wheelRequireQrRescan?: boolean;
   wheelSlices: WheelSlice[];
   geoRequired?: boolean;
   locations?: PublicLocation[];
@@ -147,6 +148,7 @@ export default function GameWheelClient({ slug }: { slug: string }) {
         wheelLogoUrl={meta.wheelLogoUrl}
         winnersEnabled={Boolean(meta.wheelWinnersEnabled)}
         winnersPeriod={meta.wheelWinnersPeriod}
+        requireQrRescan={meta.wheelRequireQrRescan !== false}
         geoRequired={Boolean(meta.geoRequired)}
         locations={meta.locations || []}
       />

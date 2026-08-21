@@ -100,6 +100,7 @@ type Props = {
   wheelWinnersEnabled?: boolean;
   wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
   wheelDefaultLocale?: Locale;
+  wheelRequireQrRescan?: boolean;
   onCampaignChange: (patch: {
     wheelEnabled?: boolean;
     spinsPerPlayerPerDay?: number;
@@ -115,6 +116,7 @@ type Props = {
     wheelWinnersEnabled?: boolean;
     wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
     wheelDefaultLocale?: Locale;
+    wheelRequireQrRescan?: boolean;
   }) => Promise<
     | void
     | {
@@ -126,6 +128,7 @@ type Props = {
         wheelWinnersEnabled?: boolean;
         wheelWinnersPeriod?: "DAY" | "WEEK" | "MONTH";
         wheelDefaultLocale?: Locale;
+        wheelRequireQrRescan?: boolean;
       }
   >;
 };
@@ -147,6 +150,7 @@ export default function WheelEditor({
   wheelWinnersEnabled = false,
   wheelWinnersPeriod = "DAY",
   wheelDefaultLocale: initialDefaultLocale = "az",
+  wheelRequireQrRescan = true,
   onCampaignChange,
 }: Props) {
   const { t } = useLocale();
@@ -168,6 +172,7 @@ export default function WheelEditor({
     wheelWinnersPeriod,
   );
   const [defaultLocale, setDefaultLocale] = useState<Locale>(initialDefaultLocale);
+  const [requireQrRescan, setRequireQrRescan] = useState(wheelRequireQrRescan);
   const [name, setName] = useState("");
   const [weight, setWeight] = useState(10);
   const [dailyLimit, setDailyLimit] = useState<string>("");
@@ -241,6 +246,7 @@ export default function WheelEditor({
     setWinnersOn(wheelWinnersEnabled);
     setWinnersPeriod(wheelWinnersPeriod);
     setDefaultLocale(initialDefaultLocale);
+    setRequireQrRescan(wheelRequireQrRescan);
   }, [
     wheelEnabled,
     spinsPerPlayerPerDay,
@@ -257,6 +263,7 @@ export default function WheelEditor({
     wheelWinnersEnabled,
     wheelWinnersPeriod,
     initialDefaultLocale,
+    wheelRequireQrRescan,
   ]);
 
   useEffect(() => {
@@ -476,6 +483,7 @@ export default function WheelEditor({
         wheelWinnersEnabled: winnersOn,
         wheelWinnersPeriod: winnersPeriod,
         wheelDefaultLocale: defaultLocale,
+        wheelRequireQrRescan: requireQrRescan,
       });
       const savedClaim =
         saved && typeof saved === "object" && "claimPin" in saved
@@ -1026,6 +1034,21 @@ export default function WheelEditor({
             </select>
           </label>
         </div>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={requireQrRescan}
+            onChange={(e) => setRequireQrRescan(e.target.checked)}
+          />
+          <span>
+            {t("qrRescanRequire")}
+            <span className="mt-0.5 block text-xs text-muted">
+              {t("qrRescanHint")}
+            </span>
+          </span>
+        </label>
 
         <label className="flex items-start gap-2 text-sm">
           <input

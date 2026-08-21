@@ -38,6 +38,7 @@ const updateSchema = z.object({
   wheelWinnersEnabled: z.boolean().optional(),
   wheelWinnersPeriod: z.enum(["DAY", "WEEK", "MONTH"]).optional(),
   wheelDefaultLocale: z.enum(["az", "tr", "en", "ru"]).optional(),
+  wheelRequireQrRescan: z.boolean().optional(),
   geoEnabled: z.boolean().optional(),
   geoLat: z.number().min(-90).max(90).nullable().optional(),
   geoLng: z.number().min(-180).max(180).nullable().optional(),
@@ -91,6 +92,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     wheelWinnersEnabled,
     wheelWinnersPeriod,
     wheelDefaultLocale,
+    wheelRequireQrRescan,
     geoEnabled,
     geoLat,
     geoLng,
@@ -183,7 +185,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     wheelTitle !== undefined ||
     wheelWinnersEnabled !== undefined ||
     wheelWinnersPeriod !== undefined ||
-    wheelDefaultLocale !== undefined
+    wheelDefaultLocale !== undefined ||
+    wheelRequireQrRescan !== undefined
   ) {
     display = await setWheelDisplaySettings(id, {
       wheelShowPrizeNames,
@@ -198,6 +201,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       wheelWinnersEnabled,
       wheelWinnersPeriod,
       wheelDefaultLocale,
+      wheelRequireQrRescan,
     });
   }
 

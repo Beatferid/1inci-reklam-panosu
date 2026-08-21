@@ -73,6 +73,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
     wheelWinnersEnabled: display.wheelWinnersEnabled,
     wheelWinnersPeriod: display.wheelWinnersPeriod,
     wheelDefaultLocale: display.wheelDefaultLocale,
+    wheelRequireQrRescan: display.wheelRequireQrRescan,
     ...publicGeoInfo(geo),
     wheelSlices: prizesToSlices(campaign.prizes, {
       equalSlices: display.wheelEqualSlices,
