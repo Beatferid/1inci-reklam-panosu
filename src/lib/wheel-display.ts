@@ -11,6 +11,10 @@ export type WheelDisplaySettings = {
   /** Kasiyer Aldım onayı — ayrı şifre */
   claimPin: string;
   requireClaimPin: boolean;
+  /** Girişte ad-soyad alanı */
+  wheelAskName: boolean;
+  /** Ad-soyad zorunlu (askName kapalıysa false) */
+  wheelNameRequired: boolean;
 };
 
 function clampInt(n: unknown, min: number, max: number, fallback: number) {
@@ -31,17 +35,10 @@ export class WheelSettingsUnavailableError extends Error {
   }
 }
 
-let claimPinEnsured = false;
-
-async function ensureClaimPinColumn() {
-  claimPinEnsured = true;
-}
-
 /** Kampanya çark görünüm ayarları */
 export async function getWheelDisplaySettings(
   campaignId: string,
 ): Promise<WheelDisplaySettings> {
-  await ensureClaimPinColumn();
   try {
     const row = await prisma.campaign.findUnique({
       where: { id: campaignId },
@@ -52,10 +49,13 @@ export async function getWheelDisplaySettings(
         claimWindowMinutes: true,
         spinPin: true,
         claimPin: true,
+        wheelAskName: true,
+        wheelNameRequired: true,
       },
     });
     const spinPin = normalizePin(row?.spinPin);
     const claimPin = normalizePin(row?.claimPin);
+    const wheelAskName = Boolean(row?.wheelAskName);
     return {
       wheelShowPrizeNames: Boolean(row?.wheelShowPrizeNames),
       wheelEqualSlices:
@@ -68,6 +68,8 @@ export async function getWheelDisplaySettings(
       requirePin: spinPin.length === 5,
       claimPin,
       requireClaimPin: claimPin.length === 5,
+      wheelAskName,
+      wheelNameRequired: wheelAskName && Boolean(row?.wheelNameRequired),
     };
   } catch (err) {
     if (err instanceof WheelSettingsUnavailableError) throw err;
@@ -84,7 +86,6 @@ export async function setWheelDisplaySettings(
     }
   >,
 ): Promise<WheelDisplaySettings> {
-  await ensureClaimPinColumn();
   const current = await getWheelDisplaySettings(campaignId);
   const nextSpinPin =
     patch.spinPin === undefined
@@ -94,6 +95,12 @@ export async function setWheelDisplaySettings(
     patch.claimPin === undefined
       ? current.claimPin
       : normalizePin(patch.claimPin ?? "");
+  const wheelAskName = patch.wheelAskName ?? current.wheelAskName;
+  const wheelNameRequired =
+    wheelAskName &&
+    (patch.wheelNameRequired !== undefined
+      ? Boolean(patch.wheelNameRequired)
+      : current.wheelNameRequired);
   const next: WheelDisplaySettings = {
     wheelShowPrizeNames:
       patch.wheelShowPrizeNames ?? current.wheelShowPrizeNames,
@@ -105,6 +112,8 @@ export async function setWheelDisplaySettings(
     requirePin: nextSpinPin.length === 5,
     claimPin: nextClaimPin,
     requireClaimPin: nextClaimPin.length === 5,
+    wheelAskName,
+    wheelNameRequired,
   };
   await prisma.campaign.update({
     where: { id: campaignId },
@@ -115,6 +124,8 @@ export async function setWheelDisplaySettings(
       claimWindowMinutes: next.claimWindowMinutes,
       spinPin: next.spinPin,
       claimPin: next.claimPin,
+      wheelAskName: next.wheelAskName,
+      wheelNameRequired: next.wheelNameRequired,
     },
   });
   return next;
@@ -146,5 +157,7 @@ export function publicWheelSettings(settings: WheelDisplaySettings) {
     claimWindowMinutes: settings.claimWindowMinutes,
     requirePin: settings.requirePin,
     requireClaimPin: settings.requireClaimPin,
+    wheelAskName: settings.wheelAskName,
+    wheelNameRequired: settings.wheelNameRequired,
   };
 }

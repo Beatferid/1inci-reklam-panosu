@@ -13,6 +13,8 @@ type Meta = {
   requirePin?: boolean;
   requireClaimPin?: boolean;
   claimWindowMinutes?: number;
+  wheelAskName?: boolean;
+  wheelNameRequired?: boolean;
   wheelSlices: WheelSlice[];
   geoRequired?: boolean;
   locations?: PublicLocation[];
@@ -148,6 +150,8 @@ export default function GameWheelClient({ slug }: { slug: string }) {
         requirePin={meta.requirePin}
         requireClaimPin={meta.requireClaimPin}
         claimWindowMinutes={meta.claimWindowMinutes}
+        askName={meta.wheelAskName}
+        nameRequired={meta.wheelNameRequired}
         geoRequired={Boolean(meta.geoRequired)}
         locations={meta.locations || []}
       />

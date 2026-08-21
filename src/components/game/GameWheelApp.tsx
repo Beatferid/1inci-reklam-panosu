@@ -50,6 +50,9 @@ type WinSummary = {
 
 type SessionData = {
   phone: string;
+  fullName?: string | null;
+  askName?: boolean;
+  nameRequired?: boolean;
   spinsLeftToday: number;
   spinsPerPlayerPerDay?: number;
   canSpin: boolean;
@@ -178,6 +181,7 @@ function normalizeWins(list: WinSummary[] | undefined): WinSummary[] {
 }
 
 const PHONE_KEY = "ar-wheel-phone";
+const NAME_KEY = "ar-wheel-fullname";
 const DEVICE_KEY = "ar-wheel-device";
 
 function spinLockKey(slug: string) {
@@ -293,6 +297,8 @@ type Props = {
   requirePin?: boolean;
   requireClaimPin?: boolean;
   claimWindowMinutes?: number;
+  askName?: boolean;
+  nameRequired?: boolean;
   geoRequired?: boolean;
   locations?: PublicLocation[];
 };
@@ -305,10 +311,13 @@ export default function GameWheelApp({
   requirePin: initialRequirePin = false,
   requireClaimPin: initialRequireClaimPin = false,
   claimWindowMinutes: initialClaimWindow = 30,
+  askName: initialAskName = false,
+  nameRequired: initialNameRequired = false,
   geoRequired = false,
   locations = [],
 }: Props) {
   const [phone, setPhone] = useState("");
+  const [fullName, setFullName] = useState("");
   const [pin, setPin] = useState("");
   const [deviceId, setDeviceId] = useState("");
   const [session, setSession] = useState<SessionData | null>(null);
@@ -346,6 +355,10 @@ export default function GameWheelApp({
   );
   const claimWindowMinutes =
     session?.claimWindowMinutes ?? initialClaimWindow;
+  const askName = Boolean(session?.askName ?? initialAskName);
+  const nameRequired = Boolean(
+    session?.nameRequired ?? initialNameRequired,
+  );
 
   useEffect(() => {
     setDeviceId(getOrCreateDeviceId());
@@ -355,6 +368,8 @@ export default function GameWheelApp({
       localStorage.removeItem("ar-wheel-pin");
       const saved = localStorage.getItem(PHONE_KEY);
       if (saved) setPhone(formatPhoneMask(saved));
+      const savedName = localStorage.getItem(NAME_KEY);
+      if (savedName) setFullName(savedName);
     } catch {
       // ignore
     }
@@ -381,6 +396,7 @@ export default function GameWheelApp({
             phone,
             deviceId: deviceId || getOrCreateDeviceId(),
             pin: pin.replace(/\D/g, "").slice(0, 5) || undefined,
+            fullName: askName ? fullName.trim() || null : undefined,
             lat: coordsRef.current?.lat,
             lng: coordsRef.current?.lng,
           }),
@@ -633,6 +649,10 @@ export default function GameWheelApp({
       setError("5 rəqəmli market şifrəsini daxil edin.");
       return;
     }
+    if (askName && nameRequired && fullName.trim().length < 2) {
+      setError("Ad və soyad yazın.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setResult(null);
@@ -645,6 +665,7 @@ export default function GameWheelApp({
           phone,
           deviceId: dev,
           pin: pin.replace(/\D/g, "").slice(0, 5) || undefined,
+          fullName: askName ? fullName.trim() || null : undefined,
           lat: coordsRef.current?.lat,
           lng: coordsRef.current?.lng,
         }),
@@ -656,6 +677,9 @@ export default function GameWheelApp({
       }
       try {
         localStorage.setItem(PHONE_KEY, phone);
+        if (askName && fullName.trim()) {
+          localStorage.setItem(NAME_KEY, fullName.trim());
+        }
       } catch {
         // ignore
       }
@@ -718,6 +742,9 @@ export default function GameWheelApp({
           phone: session.phone,
           deviceId: deviceId || getOrCreateDeviceId(),
           pin: pin.replace(/\D/g, "").slice(0, 5) || undefined,
+          fullName: askName
+            ? (session.fullName || fullName.trim() || null)
+            : undefined,
           lat: coordsRef.current?.lat,
           lng: coordsRef.current?.lng,
         }),
@@ -1300,6 +1327,28 @@ export default function GameWheelApp({
                   className="w-full rounded-2xl border-0 bg-[#FFF8EC] px-4 py-3.5 text-base tracking-wide text-[#3d2914] shadow-inner outline-none ring-1 ring-[#E8C547]/50 focus:ring-2 focus:ring-[#F0A500]"
                 />
               </label>
+              {askName ? (
+                <label className="block text-sm">
+                  <span className="mb-1.5 block font-semibold text-[#5C3200]/75">
+                    Ad soyad
+                    {nameRequired ? (
+                      <span className="ml-1 text-[#C45C12]">*</span>
+                    ) : (
+                      <span className="ml-1 font-normal text-[#5C3200]/45">
+                        (istəyə bağlı)
+                      </span>
+                    )}
+                  </span>
+                  <input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value.slice(0, 80))}
+                    autoComplete="name"
+                    placeholder="Ad Soyad"
+                    required={nameRequired}
+                    className="w-full rounded-2xl border-0 bg-[#FFF8EC] px-4 py-3.5 text-base text-[#3d2914] shadow-inner outline-none ring-1 ring-[#E8C547]/50 focus:ring-2 focus:ring-[#F0A500]"
+                  />
+                </label>
+              ) : null}
               {requirePin ? (
                 <label className="block text-sm">
                   <span className="mb-1.5 block font-semibold text-[#5C3200]/75">

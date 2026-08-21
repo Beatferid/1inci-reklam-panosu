@@ -66,6 +66,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     claimWindowMinutes: display.claimWindowMinutes,
     requirePin: display.requirePin,
     requireClaimPin: display.requireClaimPin,
+    wheelAskName: display.wheelAskName,
+    wheelNameRequired: display.wheelNameRequired,
     ...publicGeoInfo(geo),
     wheelSlices: prizesToSlices(campaign.prizes, {
       equalSlices: display.wheelEqualSlices,

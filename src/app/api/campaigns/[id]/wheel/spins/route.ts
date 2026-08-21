@@ -200,6 +200,7 @@ export async function GET(req: NextRequest, { params }: Params) {
         id: s.id,
         phone: formatPhoneDisplay(s.player.phone),
         phoneRaw: s.player.phone,
+        fullName: s.player.fullName?.trim() || null,
         locationId: s.locationId ?? null,
         locationName: s.locationName ?? null,
         prizeName: s.prize.name,
@@ -224,12 +225,13 @@ export async function GET(req: NextRequest, { params }: Params) {
   if (format === "csv") {
     const bom = "\uFEFF";
     const header =
-      "telefon,hediye,kazandi,cevirme_saati,cevirme_iso,teslim,teslim_saati,filial_id,filial_adi,gun\n";
+      "ad_soyad,telefon,hediye,kazandi,cevirme_saati,cevirme_iso,teslim,teslim_saati,filial_id,filial_adi,gun\n";
     const body = rows
       .map((r) => {
         const teslim = r.status;
         const teslimSaati = r.claimedAtLabel || r.cancelledAtLabel || "";
-        return `${r.phoneRaw},"${r.prizeName.replace(/"/g, '""')}",${r.won ? "evet" : "hayir"},${r.spunAtLabel},${r.spunAt},${teslim},${teslimSaati},${r.locationId ?? ""},"${(r.locationName || "").replace(/"/g, '""')}",${r.dayKey}`;
+        const ad = (r.fullName || "").replace(/"/g, '""');
+        return `"${ad}",${r.phoneRaw},"${r.prizeName.replace(/"/g, '""')}",${r.won ? "evet" : "hayir"},${r.spunAtLabel},${r.spunAt},${teslim},${teslimSaati},${r.locationId ?? ""},"${(r.locationName || "").replace(/"/g, '""')}",${r.dayKey}`;
       })
       .join("\n");
     return new NextResponse(bom + header + body, {

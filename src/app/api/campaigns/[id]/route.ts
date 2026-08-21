@@ -32,6 +32,8 @@ const updateSchema = z.object({
     .max(5)
     .regex(/^(\d{5})?$/, "5 rakamlı kasiyer şifresi veya boş")
     .optional(),
+  wheelAskName: z.boolean().optional(),
+  wheelNameRequired: z.boolean().optional(),
   geoEnabled: z.boolean().optional(),
   geoLat: z.number().min(-90).max(90).nullable().optional(),
   geoLng: z.number().min(-180).max(180).nullable().optional(),
@@ -79,6 +81,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     claimWindowMinutes,
     spinPin,
     claimPin,
+    wheelAskName,
+    wheelNameRequired,
     geoEnabled,
     geoLat,
     geoLng,
@@ -165,7 +169,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     spinCooldownMinutes !== undefined ||
     claimWindowMinutes !== undefined ||
     spinPin !== undefined ||
-    claimPin !== undefined
+    claimPin !== undefined ||
+    wheelAskName !== undefined ||
+    wheelNameRequired !== undefined
   ) {
     display = await setWheelDisplaySettings(id, {
       wheelShowPrizeNames,
@@ -174,6 +180,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       claimWindowMinutes,
       spinPin,
       claimPin,
+      wheelAskName,
+      wheelNameRequired,
     });
   }
 

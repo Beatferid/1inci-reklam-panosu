@@ -82,6 +82,7 @@ type SpinLite = {
   cancelledAt: string | null;
   prizeId: string;
   phone: string;
+  fullName: string | null;
   prizeName: string;
   createdAt: Date;
   locationId: string | null;
@@ -121,6 +122,7 @@ async function loadSpinsInRange(
     cancelledAt: s.cancelledAt?.toISOString() ?? null,
     prizeId: s.prizeId,
     phone: s.player.phone,
+    fullName: s.player.fullName?.trim() || null,
     prizeName: s.prize.name,
     createdAt: s.createdAt,
     locationId: s.locationId ?? null,
@@ -317,6 +319,7 @@ export type WheelAnalyticsPayload = {
   recentSpins: {
     id: string;
     phone: string;
+    fullName: string | null;
     prizeName: string;
     status: string;
     spunAtLabel: string;
@@ -392,6 +395,7 @@ export async function getWheelAnalytics(
     return {
       id: s.id,
       phone: formatPhoneDisplay(s.phone),
+      fullName: s.fullName,
       prizeName: s.prizeName,
       status,
       spunAtLabel: formatIstanbul(s.createdAt),
@@ -441,11 +445,11 @@ export function analyticsToCsv(data: WheelAnalyticsPayload): string {
     )
     .join("\n");
   const detailHeader =
-    "\n\ntelefon,hediye,durum,cevirme_saati,filial,kazandi\n";
+    "\n\nad_soyad,telefon,hediye,durum,cevirme_saati,filial,kazandi\n";
   const detailBody = data.recentSpins
     .map(
       (s) =>
-        `${s.phone},"${s.prizeName.replace(/"/g, '""')}",${s.status},${s.spunAtLabel},"${(s.locationName || "").replace(/"/g, '""')}",${s.won ? "evet" : "hayir"}`,
+        `"${(s.fullName || "").replace(/"/g, '""')}",${s.phone},"${s.prizeName.replace(/"/g, '""')}",${s.status},${s.spunAtLabel},"${(s.locationName || "").replace(/"/g, '""')}",${s.won ? "evet" : "hayir"}`,
     )
     .join("\n");
   return (

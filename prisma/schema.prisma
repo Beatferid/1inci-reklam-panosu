@@ -51,6 +51,10 @@ model Campaign {
   spinPin              String         @default("")
   /** Kasiyer "Aldım" onayı — market spinPin'den ayrı */
   claimPin             String         @default("")
+  /** Çark girişinde ad-soyad alanı göster */
+  wheelAskName         Boolean        @default(false)
+  /** Ad-soyad zorunlu (yalnızca wheelAskName açıkken anlamlı) */
+  wheelNameRequired    Boolean        @default(false)
   geoEnabled           Boolean        @default(false)
   geoLat               Float?
   geoLng               Float?
@@ -120,6 +124,7 @@ model WheelPlayer {
   campaignId String
   campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   phone      String
+  fullName   String?
   createdAt  DateTime @default(now())
   spins      WheelSpin[]
 

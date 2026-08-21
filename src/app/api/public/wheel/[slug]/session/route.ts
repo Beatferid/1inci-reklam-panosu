@@ -9,6 +9,7 @@ const bodySchema = z.object({
   phone: z.string().min(10).max(20),
   deviceId: z.string().min(8).max(64),
   pin: z.string().max(8).optional(),
+  fullName: z.string().max(80).optional().nullable(),
   lat: z.number().min(-90).max(90).optional().nullable(),
   lng: z.number().min(-180).max(180).optional().nullable(),
 });
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest, { params }: Params) {
   const result = await getWheelSession(slug, parsed.data.phone, {
     deviceId: parsed.data.deviceId,
     pin: parsed.data.pin,
+    fullName: parsed.data.fullName,
     lat: parsed.data.lat,
     lng: parsed.data.lng,
     clientIp: clientIpFromRequest(req),

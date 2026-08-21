@@ -65,6 +65,7 @@ type SpinRow = {
   id: string;
   phone: string;
   phoneRaw?: string;
+  fullName?: string | null;
   prizeName: string;
   won: boolean;
   claimed: boolean;
@@ -86,6 +87,8 @@ type Props = {
   claimWindowMinutes?: number;
   spinPin?: string;
   claimPin?: string;
+  wheelAskName?: boolean;
+  wheelNameRequired?: boolean;
   onCampaignChange: (patch: {
     wheelEnabled?: boolean;
     spinsPerPlayerPerDay?: number;
@@ -95,6 +98,8 @@ type Props = {
     claimWindowMinutes?: number;
     spinPin?: string;
     claimPin?: string;
+    wheelAskName?: boolean;
+    wheelNameRequired?: boolean;
   }) => Promise<
     | void
     | {
@@ -115,6 +120,8 @@ export default function WheelEditor({
   claimWindowMinutes = 30,
   spinPin = "",
   claimPin = "",
+  wheelAskName = false,
+  wheelNameRequired = false,
   onCampaignChange,
 }: Props) {
   const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -126,6 +133,8 @@ export default function WheelEditor({
   const [claimWindow, setClaimWindow] = useState(claimWindowMinutes);
   const [pin, setPin] = useState(spinPin);
   const [cashierPin, setCashierPin] = useState(claimPin);
+  const [askName, setAskName] = useState(wheelAskName);
+  const [nameRequired, setNameRequired] = useState(wheelNameRequired);
   const [name, setName] = useState("");
   const [weight, setWeight] = useState(10);
   const [dailyLimit, setDailyLimit] = useState<string>("");
@@ -192,6 +201,8 @@ export default function WheelEditor({
     setClaimWindow(claimWindowMinutes);
     setPin(spinPin);
     setCashierPin(claimPin);
+    setAskName(wheelAskName);
+    setNameRequired(wheelNameRequired);
   }, [
     wheelEnabled,
     spinsPerPlayerPerDay,
@@ -201,6 +212,8 @@ export default function WheelEditor({
     claimWindowMinutes,
     spinPin,
     claimPin,
+    wheelAskName,
+    wheelNameRequired,
   ]);
 
   useEffect(() => {
@@ -419,6 +432,8 @@ export default function WheelEditor({
         claimWindowMinutes: claimWindow,
         spinPin: cleanPin,
         claimPin: cleanClaimPin,
+        wheelAskName: askName,
+        wheelNameRequired: askName ? nameRequired : false,
       });
       const savedClaim =
         saved && typeof saved === "object" && "claimPin" in saved
@@ -857,6 +872,42 @@ export default function WheelEditor({
             <span className="mt-0.5 block text-xs text-muted">
               Açıkken her dilim (boş dilim dahil) eşit görünür; kazanma şansı
               yine ağırlığa göre hesaplanır.
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={askName}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setAskName(on);
+              if (!on) setNameRequired(false);
+            }}
+          />
+          <span>
+            Ad soyad sor (aktif)
+            <span className="mt-0.5 block text-xs text-muted">
+              Açıkken telefon numarasının altında ad-soyad alanı görünür.
+            </span>
+          </span>
+        </label>
+        <label
+          className={`flex items-start gap-2 text-sm ${askName ? "" : "opacity-50"}`}
+        >
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={nameRequired}
+            disabled={!askName}
+            onChange={(e) => setNameRequired(e.target.checked)}
+          />
+          <span>
+            Ad soyad zorunlu
+            <span className="mt-0.5 block text-xs text-muted">
+              Kapalıysa (serbest) boş bırakılabilir; açıkken en az 2 karakter
+              gerekir.
             </span>
           </span>
         </label>
@@ -1596,6 +1647,7 @@ export default function WheelEditor({
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-line text-muted">
+                        <th className="px-2 py-1">Ad soyad</th>
                         <th className="px-2 py-1">Telefon</th>
                         <th className="px-2 py-1">Hediye</th>
                         <th className="px-2 py-1">Tarih / saat</th>
@@ -1607,6 +1659,9 @@ export default function WheelEditor({
                     <tbody>
                       {spins.map((s) => (
                         <tr key={s.id} className="border-b border-line/50">
+                          <td className="px-2 py-1 text-[11px]">
+                            {s.fullName || "—"}
+                          </td>
                           <td className="px-2 py-1 font-mono text-[11px]">
                             {s.phone}
                           </td>

@@ -91,6 +91,7 @@ type AnalyticsPayload = {
   recentSpins: {
     id: string;
     phone: string;
+    fullName?: string | null;
     prizeName: string;
     status: string;
     spunAtLabel: string;
@@ -603,6 +604,7 @@ export default function WheelAnalyticsPanel({ campaignId }: Props) {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-line text-muted">
+                  <th className="px-2 py-1.5">Ad soyad</th>
                   <th className="px-2 py-1.5">Telefon</th>
                   <th className="px-2 py-1.5">Filial</th>
                   <th className="px-2 py-1.5">Hediye</th>
@@ -613,13 +615,14 @@ export default function WheelAnalyticsPanel({ campaignId }: Props) {
               <tbody>
                 {data.recentSpins.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-2 py-3 text-muted">
+                    <td colSpan={6} className="px-2 py-3 text-muted">
                       Kayıt yok
                     </td>
                   </tr>
                 ) : (
                   data.recentSpins.map((r) => (
                     <tr key={r.id} className="border-b border-line/40">
+                      <td className="px-2 py-1.5">{r.fullName || "—"}</td>
                       <td className="px-2 py-1.5">{r.phone}</td>
                       <td className="px-2 py-1.5">
                         {r.locationName || "—"}

@@ -31,6 +31,8 @@ export type CampaignDto = {
   requirePin?: boolean;
   claimPin?: string;
   requireClaimPin?: boolean;
+  wheelAskName?: boolean;
+  wheelNameRequired?: boolean;
   geoEnabled?: boolean;
   geoLat?: number | null;
   geoLng?: number | null;
@@ -62,6 +64,8 @@ export default function CampaignEditor({
     claimWindowMinutes: initial.claimWindowMinutes ?? 30,
     spinPin: initial.spinPin ?? "",
     claimPin: initial.claimPin ?? "",
+    wheelAskName: Boolean(initial.wheelAskName),
+    wheelNameRequired: Boolean(initial.wheelNameRequired),
     geoEnabled: Boolean(initial.geoEnabled),
     geoLat: initial.geoLat ?? null,
     geoLng: initial.geoLng ?? null,
@@ -96,6 +100,8 @@ export default function CampaignEditor({
         claimWindowMinutes: data.claimWindowMinutes ?? 30,
         spinPin: data.spinPin ?? "",
         claimPin: data.claimPin ?? "",
+        wheelAskName: Boolean(data.wheelAskName),
+        wheelNameRequired: Boolean(data.wheelNameRequired),
         geoEnabled: Boolean(data.geoEnabled),
         geoLat: data.geoLat ?? null,
         geoLng: data.geoLng ?? null,
@@ -576,6 +582,8 @@ export default function CampaignEditor({
         claimWindowMinutes={campaign.claimWindowMinutes ?? 30}
         spinPin={campaign.spinPin ?? ""}
         claimPin={campaign.claimPin ?? ""}
+        wheelAskName={Boolean(campaign.wheelAskName)}
+        wheelNameRequired={Boolean(campaign.wheelNameRequired)}
         onCampaignChange={async (patch) => {
           const res = await fetch(`/api/campaigns/${campaign.id}`, {
             method: "PATCH",

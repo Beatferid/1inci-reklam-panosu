@@ -89,6 +89,30 @@ export function maskPhone(phone: string): string {
   return `${d.slice(0, 3)} *** ** ${d.slice(8)}`;
 }
 
+/** Ad-soyad: boşlukları sadeleştir, max 80 */
+export function normalizeFullName(raw: string | null | undefined): string | null {
+  const s = String(raw ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return s.length ? s : null;
+}
+
+function resolvePlayerName(
+  display: WheelDisplaySettings,
+  raw: string | null | undefined,
+): { fullName: string | null } | { error: string; status: 400 } {
+  if (!display.wheelAskName) return { fullName: null };
+  const fullName = normalizeFullName(raw);
+  if (display.wheelNameRequired && (!fullName || fullName.length < 2)) {
+    return {
+      error: "Ad və soyad yazın (ən az 2 hərf).",
+      status: 400,
+    };
+  }
+  return { fullName };
+}
+
 let prizeQuotaColsReady = false;
 /** Kolonlar Prisma şemasında — Postgres'te PRAGMA yok */
 export async function ensurePrizePeriodQuotaColumns() {
@@ -557,6 +581,7 @@ type AuthOpts = {
   lng?: number | null;
   /** PIN rate-limit için istemci IP (deviceId değil) */
   clientIp?: string | null;
+  fullName?: string | null;
 };
 
 function checkPin(
@@ -666,6 +691,10 @@ export async function getWheelSession(
   const pinErr = checkPin(display, opts.pin, slug, opts.clientIp);
   if (pinErr) return pinErr;
 
+  const nameResolved = resolvePlayerName(display, opts.fullName);
+  if ("error" in nameResolved) return nameResolved;
+  const fullName = nameResolved.fullName;
+
   const geoCheck = assertInsideLocations(
     geo.geoEnabled,
     geo.locations,
@@ -691,11 +720,30 @@ export async function getWheelSession(
   // aksi halde kota dolu kalır ve yeni ödül dağıtılamaz.
   await expireStaleWins(campaign.id, display.claimWindowMinutes);
 
-  const player = await prisma.wheelPlayer.findUnique({
+  let player = await prisma.wheelPlayer.findUnique({
     where: {
       campaignId_phone: { campaignId: campaign.id, phone },
     },
   });
+
+  if (display.wheelAskName) {
+    player = await prisma.wheelPlayer.upsert({
+      where: {
+        campaignId_phone: { campaignId: campaign.id, phone },
+      },
+      create: {
+        campaignId: campaign.id,
+        phone,
+        fullName,
+      },
+      update:
+        fullName != null
+          ? { fullName }
+          : player?.fullName
+            ? {}
+            : { fullName: null },
+    });
+  }
 
   const phoneSpins = player
     ? await prisma.wheelSpin.count({
@@ -768,6 +816,9 @@ export async function getWheelSession(
     data: {
       phone,
       phoneDisplay: formatPhoneDisplay(phone),
+      fullName: player?.fullName ?? fullName ?? null,
+      askName: display.wheelAskName,
+      nameRequired: display.wheelNameRequired,
       spinsPerPlayerPerDay: campaign.spinsPerPlayerPerDay,
       spinsUsedToday: usedToday,
       spinsLeftToday,
@@ -855,6 +906,10 @@ export async function spinWheel(
   const pinErr = checkPin(display, opts.pin, slug, opts.clientIp);
   if (pinErr) return pinErr;
 
+  const nameResolved = resolvePlayerName(display, opts.fullName);
+  if ("error" in nameResolved) return nameResolved;
+  const fullName = nameResolved.fullName;
+
   const geoCheck = assertInsideLocations(
     geo.geoEnabled,
     geo.locations,
@@ -911,8 +966,13 @@ export async function spinWheel(
       where: {
         campaignId_phone: { campaignId: campaign.id, phone },
       },
-      create: { campaignId: campaign.id, phone },
-      update: {},
+      create: {
+        campaignId: campaign.id,
+        phone,
+        ...(display.wheelAskName ? { fullName } : {}),
+      },
+      update:
+        display.wheelAskName && fullName != null ? { fullName } : {},
     });
 
     const phoneSpins = await tx.wheelSpin.count({
