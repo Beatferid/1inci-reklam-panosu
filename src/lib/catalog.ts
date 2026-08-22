@@ -60,8 +60,11 @@ function mapPage(p: {
   };
 }
 
-export async function listCatalogs(): Promise<CatalogSummary[]> {
+export async function listCatalogs(
+  where: { ownerId?: string } = {},
+): Promise<CatalogSummary[]> {
   const rows = await prisma.catalog.findMany({
+    where: where.ownerId ? { ownerId: where.ownerId } : undefined,
     orderBy: { updatedAt: "desc" },
     include: { _count: { select: { pages: true } } },
   });
@@ -87,6 +90,7 @@ export async function listCatalogs(): Promise<CatalogSummary[]> {
 export async function createCatalog(input: {
   name: string;
   slug?: string;
+  ownerId?: string;
 }) {
   let slug = slugify(input.slug || input.name);
   if (!slug) slug = `katalog-${Date.now()}`;
@@ -96,7 +100,9 @@ export async function createCatalog(input: {
     slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
   }
 
-  return prisma.catalog.create({ data: { name: input.name, slug } });
+  return prisma.catalog.create({
+    data: { name: input.name, slug, ownerId: input.ownerId },
+  });
 }
 
 export async function getCatalogForAdmin(

@@ -7,12 +7,15 @@ import { ADMIN_LOCALE_KEY } from "@/lib/i18n/locales";
 
 function AdminNav({
   email,
+  role,
   signOutAction,
 }: {
   email?: string | null;
+  role?: string | null;
   signOutAction: () => Promise<void>;
 }) {
   const { t } = useLocale();
+  const isSuper = role === "SUPER";
 
   return (
     <header className="border-b border-line/80 bg-card/80 backdrop-blur">
@@ -50,6 +53,14 @@ function AdminNav({
             >
               {t("navCatalog")}
             </Link>
+            {isSuper ? (
+              <Link
+                href="/admin/kullanicilar"
+                className="rounded-md border border-amber-300 bg-amber-50 px-3 py-1.5 font-medium text-amber-900 hover:bg-amber-100"
+              >
+                Kullanıcılar
+              </Link>
+            ) : null}
             <Link
               href="/admin/hesap"
               className="rounded-md border border-line px-3 py-1.5 text-muted hover:bg-white hover:text-ink"
@@ -60,7 +71,10 @@ function AdminNav({
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <LanguageSwitcher compact />
-          <span className="hidden text-muted sm:inline">{email}</span>
+          <span className="hidden text-muted sm:inline">
+            {email}
+            {isSuper ? " · süper" : " · müşteri"}
+          </span>
           <form action={signOutAction}>
             <button
               type="submit"
@@ -78,10 +92,12 @@ function AdminNav({
 export default function AdminShell({
   children,
   email,
+  role,
   signOutAction,
 }: {
   children: React.ReactNode;
   email?: string | null;
+  role?: string | null;
   signOutAction: () => Promise<void>;
 }) {
   return (
@@ -91,7 +107,7 @@ export default function AdminShell({
       defaultLocale="az"
     >
       <div className="min-h-screen">
-        <AdminNav email={email} signOutAction={signOutAction} />
+        <AdminNav email={email} role={role} signOutAction={signOutAction} />
         <div className="mx-auto max-w-6xl px-6 py-8">{children}</div>
       </div>
     </LocaleProvider>

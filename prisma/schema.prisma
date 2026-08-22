@@ -9,12 +9,23 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String?
+  /** SUPER = siz (tüm kontrol); CLIENT = müşteri (yalnız kendi kayıtları) */
+  role          UserRole       @default(CLIENT)
+  active        Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  campaigns     Campaign[]
+  catalogs      Catalog[]
+  feedbackBoxes FeedbackBox[]
+}
+
+enum UserRole {
+  SUPER
+  CLIENT
 }
 
 enum CampaignStatus {
@@ -71,6 +82,9 @@ model Campaign {
   geoLat               Float?
   geoLng               Float?
   geoRadiusMeters      Int            @default(150)
+  /** Kaydın sahibi — CLIENT yalnız kendi kayıtlarını görür */
+  ownerId              String?
+  owner                User?          @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt            DateTime       @default(now())
   updatedAt            DateTime       @updatedAt
   events               AnalyticsEvent[]
@@ -78,6 +92,8 @@ model Campaign {
   players              WheelPlayer[]
   spins                WheelSpin[]
   locations            CampaignLocation[]
+
+  @@index([ownerId])
 }
 
 model CampaignLocation {
@@ -189,11 +205,15 @@ model FeedbackBox {
   status              CampaignStatus     @default(DRAFT)
   geoEnabled          Boolean            @default(false)
   dailyLimitPerDevice Int                @default(3)
+  ownerId             String?
+  owner               User?              @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   locations           FeedbackLocation[]
   entries             FeedbackEntry[]
   devices             FeedbackDevice[]
+
+  @@index([ownerId])
 }
 
 model FeedbackLocation {
@@ -288,9 +308,13 @@ model Catalog {
   theme       CatalogTheme     @default(NONE)
   flipStyle   CatalogFlipStyle @default(CURL)
   viewCount   Int              @default(0)
+  ownerId     String?
+  owner       User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   pages       CatalogPage[]
+
+  @@index([ownerId])
 }
 
 model CatalogPage {

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import {
+  assertCatalogAccess,
+  requireUser,
+} from "@/lib/access";
 import { reorderCatalogPages } from "@/lib/catalog";
 
 const reorderSchema = z.object({
@@ -10,11 +13,11 @@ const reorderSchema = z.object({
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCatalogAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const body = await req.json().catch(() => null);
   const parsed = reorderSchema.safeParse(body);
   if (!parsed.success) {

@@ -1,13 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { listCatalogs } from "@/lib/catalog";
 import { catalogEntryUrl } from "@/lib/qr";
 import CopyLinkButton from "@/components/admin/CopyLinkButton";
 import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
+import { getAppUser, ownerWhere } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function CatalogListPage() {
-  const catalogs = await listCatalogs();
+  const user = await getAppUser();
+  if (!user) redirect("/login");
+  const filter = ownerWhere(user);
+  const catalogs = await listCatalogs(
+    "ownerId" in filter ? { ownerId: filter.ownerId } : {},
+  );
 
   return (
     <div>

@@ -14,7 +14,11 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShell email={session?.user?.email} signOutAction={signOutAction}>
+    <AdminShell
+      email={session?.user?.email}
+      role={session?.user?.role}
+      signOutAction={signOutAction}
+    >
       {children}
     </AdminShell>
   );

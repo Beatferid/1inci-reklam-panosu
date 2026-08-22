@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import {
+  assertFeedbackBoxAccess,
+  requireUser,
+} from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import {
   deleteFeedbackLocation,
@@ -20,11 +23,11 @@ const patchSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id, locId } = await params;
+  const access = await assertFeedbackBoxAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const box = await prisma.feedbackBox.findUnique({ where: { id } });
   if (!box) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -52,11 +55,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id, locId } = await params;
+  const access = await assertFeedbackBoxAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const box = await prisma.feedbackBox.findUnique({ where: { id } });
   if (!box) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

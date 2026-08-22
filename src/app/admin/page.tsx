@@ -1,16 +1,26 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { campaignEntryUrl } from "@/lib/qr";
 import BoardExportButton from "@/components/admin/BoardExportButton";
 import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
+import { getAppUser, isSuper, ownerWhere } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminHomePage() {
+  const user = await getAppUser();
+  if (!user) redirect("/login");
+
   const campaigns = await prisma.campaign.findMany({
+    where: ownerWhere(user),
     orderBy: { updatedAt: "desc" },
+    include: {
+      owner: { select: { email: true, name: true } },
+    },
   });
   const publishedReady = campaigns.filter((c) => c.status === "PUBLISHED");
+  const showOwner = isSuper(user);
 
   return (
     <div>
@@ -20,8 +30,9 @@ export default async function AdminHomePage() {
             Kampanyalar
           </h1>
           <p className="mt-1 text-sm text-muted">
-            QR ile açılan görsel veya şans çarkı. Katalog ve geri bildirim ayrı
-            menülerde.
+            {showOwner
+              ? "Tüm müşteri kampanyaları. QR ile görsel veya şans çarkı."
+              : "Size ait kampanyalar. QR ile görsel veya şans çarkı."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -52,6 +63,11 @@ export default async function AdminHomePage() {
               <tr>
                 <th className="px-4 py-3 font-medium">Ad</th>
                 <th className="px-4 py-3 font-medium">Durum</th>
+                {showOwner ? (
+                  <th className="hidden px-4 py-3 font-medium lg:table-cell">
+                    Sahip
+                  </th>
+                ) : null}
                 <th className="hidden px-4 py-3 font-medium md:table-cell">
                   Tarama
                 </th>
@@ -79,7 +95,14 @@ export default async function AdminHomePage() {
                       {c.status === "PUBLISHED" ? "Yayında" : "Taslak"}
                     </span>
                   </td>
-                  <td className="hidden px-4 py-3 md:table-cell">{c.scanCount}</td>
+                  {showOwner ? (
+                    <td className="hidden px-4 py-3 text-xs text-muted lg:table-cell">
+                      {c.owner?.name || c.owner?.email || "—"}
+                    </td>
+                  ) : null}
+                  <td className="hidden px-4 py-3 md:table-cell">
+                    {c.scanCount}
+                  </td>
                   <td className="hidden px-4 py-3 lg:table-cell">
                     {c.mediaPath ? "Var" : "—"}
                   </td>

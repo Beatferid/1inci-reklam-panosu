@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import {
+  assertCatalogAccess,
+  requireUser,
+} from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import { addCatalogPage } from "@/lib/catalog";
 import {
@@ -14,12 +17,11 @@ export const runtime = "nodejs";
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
-
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCatalogAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const catalog = await prisma.catalog.findUnique({ where: { id } });
   if (!catalog) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import {
+  assertCampaignAccess,
+  requireUser,
+} from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import {
   ensurePrizePeriodQuotaColumns,
@@ -29,11 +32,11 @@ const prizeSchema = z.object({
 });
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   await ensurePrizePeriodQuotaColumns();
   const campaign = await prisma.campaign.findUnique({ where: { id } });
   if (!campaign) {
@@ -60,11 +63,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const campaign = await prisma.campaign.findUnique({ where: { id } });
   if (!campaign) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

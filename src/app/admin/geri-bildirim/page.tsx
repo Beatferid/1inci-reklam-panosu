@@ -1,14 +1,21 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { feedbackEntryUrl } from "@/lib/qr";
 import DeleteRecordButton from "@/components/admin/DeleteRecordButton";
+import { getAppUser, ownerWhere } from "@/lib/access";
 
 export const dynamic = "force-dynamic";
 
 export default async function FeedbackBoxListPage() {
+  const user = await getAppUser();
+  if (!user) redirect("/login");
   const boxes = await prisma.feedbackBox.findMany({
+    where: ownerWhere(user),
     orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { entries: true, locations: true, devices: true } } },
+    include: {
+      _count: { select: { entries: true, locations: true, devices: true } },
+    },
   });
 
   return (

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
+import { ownerWhere, requireUser } from "@/lib/access";
 
 const createSchema = z.object({
   name: z.string().min(2).max(120),
@@ -10,22 +10,21 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const boxes = await prisma.feedbackBox.findMany({
+    where: ownerWhere(gate.user),
     orderBy: { updatedAt: "desc" },
-    include: { _count: { select: { entries: true, locations: true, devices: true } } },
+    include: {
+      _count: { select: { entries: true, locations: true, devices: true } },
+    },
   });
   return NextResponse.json(boxes);
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const body = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
@@ -41,7 +40,11 @@ export async function POST(req: NextRequest) {
   }
 
   const box = await prisma.feedbackBox.create({
-    data: { name: parsed.data.name, slug },
+    data: {
+      name: parsed.data.name,
+      slug,
+      ownerId: gate.user.id,
+    },
   });
 
   return NextResponse.json(box, { status: 201 });

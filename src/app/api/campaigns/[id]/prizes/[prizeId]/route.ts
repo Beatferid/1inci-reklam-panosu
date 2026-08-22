@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
+import {
+  assertCampaignAccess,
+  requireUser,
+} from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import {
   ensurePrizePeriodQuotaColumns,
@@ -26,12 +29,12 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
-  await ensurePrizePeriodQuotaColumns();
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id, prizeId } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
+  await ensurePrizePeriodQuotaColumns();
   const existing = await prisma.wheelPrize.findFirst({
     where: { id: prizeId, campaignId: id },
   });
@@ -107,11 +110,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id, prizeId } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const existing = await prisma.wheelPrize.findFirst({
     where: { id: prizeId, campaignId: id },
   });

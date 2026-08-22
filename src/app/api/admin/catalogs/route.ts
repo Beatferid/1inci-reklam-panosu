@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { listCatalogs, createCatalog } from "@/lib/catalog";
+import { ownerWhere, requireUser } from "@/lib/access";
 
 const createSchema = z.object({
   name: z.string().min(2).max(120),
@@ -9,25 +9,27 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
-  const catalogs = await listCatalogs();
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
+  const filter = ownerWhere(gate.user);
+  const catalogs = await listCatalogs(
+    "ownerId" in filter ? { ownerId: filter.ownerId } : {},
+  );
   return NextResponse.json(catalogs);
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const body = await req.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Geçersiz veri" }, { status: 400 });
   }
 
-  const catalog = await createCatalog(parsed.data);
+  const catalog = await createCatalog({
+    ...parsed.data,
+    ownerId: gate.user.id,
+  });
   return NextResponse.json(catalog, { status: 201 });
 }

@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import {
+  assertCampaignAccess,
+  requireUser,
+} from "@/lib/access";
 import { prisma } from "@/lib/prisma";
 import {
   MAX_UPLOAD_BYTES,
@@ -17,11 +20,11 @@ import {
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const campaign = await prisma.campaign.findUnique({ where: { id } });
   if (!campaign) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -62,11 +65,11 @@ export async function POST(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const current = await getWheelDisplaySettings(id);
   await deleteStorageFile(current.wheelLogoPath);
   const display = await setWheelDisplaySettings(id, { wheelLogoPath: null });

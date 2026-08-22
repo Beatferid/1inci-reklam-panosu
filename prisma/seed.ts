@@ -26,17 +26,37 @@ async function main() {
 
   const passwordHash = await bcrypt.hash(effectivePassword, 10);
 
-  await prisma.user.upsert({
+  const admin = await prisma.user.upsert({
     where: { email: login },
-    update: { passwordHash, name: "Admin" },
+    update: {
+      passwordHash,
+      name: "Admin",
+      role: "SUPER",
+      active: true,
+    },
     create: {
       email: login,
       passwordHash,
       name: "Admin",
+      role: "SUPER",
+      active: true,
     },
   });
 
-  // Eski varsayılan hesabı da admin ile hizala (varsa)
+  // Mevcut sahipsiz kayıtları süper admin'e bağla
+  const orphanCampaigns = await prisma.campaign.updateMany({
+    where: { ownerId: null },
+    data: { ownerId: admin.id },
+  });
+  const orphanCatalogs = await prisma.catalog.updateMany({
+    where: { ownerId: null },
+    data: { ownerId: admin.id },
+  });
+  const orphanBoxes = await prisma.feedbackBox.updateMany({
+    where: { ownerId: null },
+    data: { ownerId: admin.id },
+  });
+
   if (login !== "admin@arpanosu.local") {
     const legacy = await prisma.user.findUnique({
       where: { email: "admin@arpanosu.local" },
@@ -47,7 +67,7 @@ async function main() {
   }
 
   console.log(
-    `Admin hazır: ${login} / (şifre: ${password ? ".env ADMIN_PASSWORD" : "dev varsayılan — değiştirin"})`,
+    `Süper admin hazır: ${login} (role=SUPER). Sahipsiz bağlandı: kampanya ${orphanCampaigns.count}, katalog ${orphanCatalogs.count}, kutu ${orphanBoxes.count}`,
   );
 }
 

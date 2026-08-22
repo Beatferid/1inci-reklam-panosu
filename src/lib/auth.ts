@@ -31,6 +31,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             where: { email: login },
           });
           if (!user) return null;
+          if (!user.active) return null;
 
           const ok = await bcrypt.compare(
             parsed.data.password,
@@ -42,6 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: user.id,
             email: user.email,
             name: user.name ?? "Admin",
+            role: user.role,
           };
         } catch (e) {
           console.error("auth authorize failed", e);

@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateBoardPng } from "@/lib/board-layout";
+import { ownerWhere, requireUser } from "@/lib/access";
 
-/** Yayınlı + derlenmiş kampanyalardan tek büyük pano PNG. */
+/** Yayınlı + hazır kampanyalardan tek büyük pano PNG. */
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
 
   const idsParam = req.nextUrl.searchParams.get("ids");
   const campaigns = await prisma.campaign.findMany({
     where: {
+      ...ownerWhere(gate.user),
       status: "PUBLISHED",
       ...(idsParam
         ? { id: { in: idsParam.split(",").filter(Boolean) } }
@@ -25,8 +24,7 @@ export async function GET(req: NextRequest) {
   if (campaigns.length === 0) {
     return NextResponse.json(
       {
-        error:
-          "Pano için yayınlı en az bir kampanya gerekli.",
+        error: "Pano için yayınlı en az bir kampanya gerekli.",
       },
       { status: 400 },
     );

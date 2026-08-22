@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { deleteStorageFile } from "@/lib/storage";
 import { slugify } from "@/lib/utils";
 import {
@@ -9,6 +8,10 @@ import {
   setWheelDisplaySettings,
 } from "@/lib/wheel-display";
 import { getWheelGeoSettings, setWheelGeoSettings } from "@/lib/wheel-geo";
+import {
+  assertCampaignAccess,
+  requireUser,
+} from "@/lib/access";
 
 const updateSchema = z.object({
   name: z.string().min(2).max(120).optional(),
@@ -48,11 +51,11 @@ const updateSchema = z.object({
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const campaign = await prisma.campaign.findUnique({ where: { id } });
   if (!campaign) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -63,11 +66,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const existing = await prisma.campaign.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -245,11 +248,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertCampaignAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const existing = await prisma.campaign.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });

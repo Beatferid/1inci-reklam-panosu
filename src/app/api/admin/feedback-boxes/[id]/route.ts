@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import {
+  assertFeedbackBoxAccess,
+  requireUser,
+} from "@/lib/access";
 import { slugify } from "@/lib/utils";
 import { setFeedbackGeoEnabled } from "@/lib/feedback-geo";
 
@@ -16,11 +19,11 @@ const updateSchema = z.object({
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertFeedbackBoxAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const box = await prisma.feedbackBox.findUnique({ where: { id } });
   if (!box) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -29,11 +32,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertFeedbackBoxAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const existing = await prisma.feedbackBox.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
@@ -77,11 +80,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const gate = await requireUser();
+  if (!gate.ok) return gate.response;
   const { id } = await params;
+  const access = await assertFeedbackBoxAccess(id, gate.user);
+  if (!access.ok) return access.response;
   const existing = await prisma.feedbackBox.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Bulunamadı" }, { status: 404 });
